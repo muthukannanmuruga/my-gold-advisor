@@ -27,6 +27,14 @@ export const PurchasesList = ({ refreshTrigger, onPurchaseDeleted }: PurchasesLi
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0'); // Ensure two-digit day
+    const month = date.toLocaleString('default', { month: 'long' });
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
   const fetchPurchases = async () => {
     try {
       const { data, error } = await supabase
@@ -122,7 +130,7 @@ export const PurchasesList = ({ refreshTrigger, onPurchaseDeleted }: PurchasesLi
                   <div className="text-sm text-muted-foreground">
                     <p>₹{purchase.purchase_price_per_gram.toLocaleString()}/gram</p>
                     <p>Total: ₹{purchase.total_amount.toLocaleString()}</p>
-                    <p>Date: {new Date(purchase.purchase_date).toLocaleDateString()}</p>
+                    <p>Date: {formatDate(purchase.purchase_date)}</p>
                     {purchase.description && (
                       <p className="mt-1">{purchase.description}</p>
                     )}

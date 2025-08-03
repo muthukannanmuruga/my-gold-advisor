@@ -41,7 +41,7 @@ const LOCAL_CHARGES_RATE = 0.015;
 export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
   const [priceData, setPriceData] = useState<GoldPriceData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [purity, setPurity] = useState<Purity>(24);
+  const [purity, setPurity] = useState<Purity>(22);
   const { toast } = useToast();
 
   const resolveBasePrice = (data: GoldPriceData, purity: Purity) => {
