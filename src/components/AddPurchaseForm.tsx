@@ -5,10 +5,10 @@ import * as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { useToast } from "./ui/use-toast";
+import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 
 const purchaseSchema = z.object({
   weight_grams: z.string().refine(val => parseFloat(val) > 0, "Weight must be greater than 0"),
@@ -108,6 +108,7 @@ export const AddPurchaseForm = ({ onPurchaseAdded }: AddPurchaseFormProps) => {
                         type="number" 
                         step="0.001" 
                         placeholder="10.500"
+                        className="placeholder:text-muted-foreground/50"
                         {...field} 
                       />
                     </FormControl>
@@ -121,15 +122,27 @@ export const AddPurchaseForm = ({ onPurchaseAdded }: AddPurchaseFormProps) => {
                 name="carat"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Carat (1-24)</FormLabel>
+                    <FormLabel>Carat</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        min="1" 
-                        max="24"
-                        placeholder="22"
-                        {...field} 
-                      />
+                      <ToggleGroup
+                        type="single"
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        className="grid grid-cols-2 gap-2"
+                      >
+                        <ToggleGroupItem 
+                          value="22" 
+                          className="w-full border data-[state=on]:bg-black data-[state=on]:text-white"
+                        >
+                          22K
+                        </ToggleGroupItem>
+                        <ToggleGroupItem 
+                          value="24" 
+                          className="w-full border data-[state=on]:bg-black data-[state=on]:text-white"
+                        >
+                          24K
+                        </ToggleGroupItem>
+                      </ToggleGroup>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -147,6 +160,7 @@ export const AddPurchaseForm = ({ onPurchaseAdded }: AddPurchaseFormProps) => {
                         type="number" 
                         step="0.01"
                         placeholder="7200.00"
+                        className="placeholder:text-muted-foreground/50"
                         {...field} 
                       />
                     </FormControl>
@@ -162,7 +176,11 @@ export const AddPurchaseForm = ({ onPurchaseAdded }: AddPurchaseFormProps) => {
                   <FormItem>
                     <FormLabel>Purchase Date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input 
+                        type="date" 
+                        className="placeholder:text-muted-foreground/50"
+                        {...field} 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -179,6 +197,7 @@ export const AddPurchaseForm = ({ onPurchaseAdded }: AddPurchaseFormProps) => {
                   <FormControl>
                     <Input 
                       placeholder="e.g., Gold necklace, coins, bars..."
+                      className="placeholder:text-muted-foreground/50"
                       {...field} 
                     />
                   </FormControl>
