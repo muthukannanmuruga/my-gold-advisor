@@ -8,19 +8,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut, TrendingUp } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useSession } from "@/hooks/useSession"; // ✅ import the hook
 
 const Index = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [currentGoldPrice, setCurrentGoldPrice] = useState(7200); // Default fallback price
+  const [currentGoldPrice, setCurrentGoldPrice] = useState(7200); // Default fallback
   const { toast } = useToast();
+  const { session } = useSession(); // ✅ get session
 
-  const handlePurchaseAdded = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
+  const userEmail = session?.user?.email ?? "";
+  const username = userEmail
+    .split("@")[0]
+    .replaceAll(".", " ")
+    .split(" ")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 
-  const handlePurchaseDeleted = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
+  const handlePurchaseAdded = () => setRefreshTrigger((prev) => prev + 1);
+  const handlePurchaseDeleted = () => setRefreshTrigger((prev) => prev + 1);
 
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
@@ -50,25 +55,19 @@ const Index = () => {
           </div>
         </header>
 
+        {/* Welcome Bar */}
+        {username && (
+          <div className="bg-yellow-100 text-yellow-800 text-sm text-center py-2 font-medium">
+            👋 Welcome {username}
+          </div>
+        )}
+
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8 space-y-8">
-          {/* Current Gold Price */}
           <GoldPriceWidget onPriceUpdate={setCurrentGoldPrice} />
-
-          {/* Portfolio Summary */}
-          <PortfolioSummary 
-            refreshTrigger={refreshTrigger} 
-            currentGoldPrice={currentGoldPrice} 
-          />
-
-          {/* Add Purchase Form */}
+          <PortfolioSummary refreshTrigger={refreshTrigger} currentGoldPrice={currentGoldPrice} />
           <AddPurchaseForm onPurchaseAdded={handlePurchaseAdded} />
-
-          {/* Purchases List */}
-          <PurchasesList 
-            refreshTrigger={refreshTrigger} 
-            onPurchaseDeleted={handlePurchaseDeleted} 
-          />
+          <PurchasesList refreshTrigger={refreshTrigger} onPurchaseDeleted={handlePurchaseDeleted} />
         </main>
       </div>
     </AuthWrapper>

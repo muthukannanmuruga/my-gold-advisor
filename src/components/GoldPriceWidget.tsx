@@ -33,7 +33,7 @@ interface GoldPriceWidgetProps {
 type Purity = 24 | 22;
 
 const GOLDAPI_URL = "https://www.goldapi.io/api/XAU/INR";
-const GOLDAPI_KEY = "goldapi-cr9bsmdvdz2ap-io";
+const GOLDAPI_KEY = "goldapi-1424smdvlf2mb-io";
 
 const IMPORT_DUTY_RATE = 0.06;
 const LOCAL_CHARGES_RATE = 0.015;
