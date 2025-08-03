@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { TrendingUp, TrendingDown, DollarSign, Weight } from "lucide-react";
+import { TrendingUp, TrendingDown, Weight } from "lucide-react";
 
 interface PortfolioStats {
   totalWeight: number;
@@ -141,20 +141,20 @@ const PortfolioSummary = memo(({
     },
     {
       title: "Total Investment",
-      value: `₹${displayStats.totalInvestment.toLocaleString()}`,
-      icon: DollarSign,
+      value: `₹${displayStats.totalInvestment.toLocaleString("en-IN")}`,
+      icon: () => <span className="text-xl">₹</span>,
       description: `Avg: ₹${displayStats.averagePurchasePrice.toFixed(2)}/g`,
     },
     {
       title: "Current Value",
-      value: `₹${displayStats.currentValue.toLocaleString()}`,
-      icon: DollarSign,
+      value: `₹${displayStats.currentValue.toLocaleString("en-IN")}`,
+      icon: () => <span className="text-xl">₹</span>,
       description: `Using 24K rate: ₹${currentGoldPrice.toFixed(2)}/g`,
       shimmer: delayedLoading,
     },
     {
       title: "Total Gain/Loss",
-      value: `₹${Math.abs(displayStats.totalGain).toLocaleString()}`,
+      value: `₹${Math.abs(displayStats.totalGain).toLocaleString("en-IN")}`,
       icon: displayStats.totalGain >= 0 ? TrendingUp : TrendingDown,
       description: `${displayStats.gainPercentage.toFixed(2)}%`,
       isGain: displayStats.totalGain >= 0,
