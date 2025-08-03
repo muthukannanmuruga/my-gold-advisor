@@ -14,7 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      gold_purchases: {
+        Row: {
+          carat: number
+          created_at: string
+          description: string | null
+          id: string
+          purchase_date: string
+          purchase_price_per_gram: number
+          total_amount: number
+          updated_at: string
+          user_id: string
+          weight_grams: number
+        }
+        Insert: {
+          carat: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          purchase_date: string
+          purchase_price_per_gram: number
+          total_amount: number
+          updated_at?: string
+          user_id: string
+          weight_grams: number
+        }
+        Update: {
+          carat?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          purchase_date?: string
+          purchase_price_per_gram?: number
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+          weight_grams?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
