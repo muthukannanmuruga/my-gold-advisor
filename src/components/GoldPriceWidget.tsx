@@ -1,63 +1,112 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { RefreshCw, TrendingUp } from "lucide-react";
 import { useToast } from "./ui/use-toast";
 
+interface GoldApiResponse {
+  price_gram_24k?: number;
+  price_gram_22k?: number;
+  price?: number; // INR per troy ounce
+  lastUpdated?: string;
+}
+
 interface GoldPriceData {
-  priceInrPerGram: number;
-  priceUsdPerOunce: number;
+  priceInrPerGram24K: number;
+  priceInrPerGram22K: number;
   lastUpdated: string;
   source: string;
   error?: string;
 }
 
 interface GoldPriceWidgetProps {
-  onPriceUpdate: (price: number) => void;
+  onPriceUpdate: (price24K: number) => void;
 }
+
+type Purity = 24 | 22;
+
+const GOLDAPI_URL = "https://www.goldapi.io/api/XAU/INR";
+const GOLDAPI_KEY = "goldapi-cr9bsmdvdz2ap-io";
+
+const IMPORT_DUTY_RATE = 0.06;
+const LOCAL_CHARGES_RATE = 0.015;
 
 export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
   const [priceData, setPriceData] = useState<GoldPriceData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [purity, setPurity] = useState<Purity>(24);
   const { toast } = useToast();
+
+  const resolveBasePrice = (data: GoldPriceData, purity: Purity) => {
+    return purity === 24 ? data.priceInrPerGram24K : data.priceInrPerGram22K;
+  };
+
+  const computeBreakdown = (base: number) => {
+    return {
+      base,
+      importDuty: base * IMPORT_DUTY_RATE,
+      localCharges: base * LOCAL_CHARGES_RATE,
+      total: base * (1 + IMPORT_DUTY_RATE + LOCAL_CHARGES_RATE),
+    };
+  };
 
   const fetchGoldPrice = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('get-gold-price');
-      
-      if (error) throw error;
-      
-      setPriceData(data);
-      onPriceUpdate(data.priceInrPerGram);
-      
-      if (data.error) {
-        toast({
-          title: "Using fallback price",
-          description: data.error,
-          variant: "default",
-        });
+      const resp = await fetch(GOLDAPI_URL, {
+        headers: { "x-access-token": GOLDAPI_KEY, Accept: "application/json" },
+      });
+
+      if (!resp.ok) throw new Error(`GoldAPI HTTP ${resp.status}`);
+
+      const json: GoldApiResponse = await resp.json();
+
+      // Calculate prices
+      let price24K = json.price_gram_24k ?? 
+                    (json.price ? json.price / 31.1035 : null);
+      let price22K = json.price_gram_22k ?? 
+                    (price24K ? (22 / 24) * price24K : null);
+
+      if (!price24K || !price22K) {
+        throw new Error("Incomplete gold price data from API");
       }
-    } catch (error) {
-      console.error("Error fetching gold price:", error);
+
+      const data: GoldPriceData = {
+        priceInrPerGram24K: Number(price24K.toFixed(2)),
+        priceInrPerGram22K: Number(price22K.toFixed(2)),
+        lastUpdated: new Date().toISOString(),
+        source: "GoldAPI INR endpoint",
+      };
+
+      setPriceData(data);
+      // Always send 24K price to parent for portfolio calculations
+      onPriceUpdate(computeBreakdown(data.priceInrPerGram24K).total);
+
+    } catch (err: any) {
+      console.error("Error fetching gold price:", err);
       toast({
         title: "Error",
-        description: "Failed to fetch current gold price",
+        description: "Failed to fetch current gold price, using fallback",
         variant: "destructive",
       });
-      
-      // Use fallback price
-      const fallbackData = {
-        priceInrPerGram: 7200,
-        priceUsdPerOunce: 2650,
+
+      const fallback24K = 7200;
+      const fallbackData: GoldPriceData = {
+        priceInrPerGram24K: fallback24K,
+        priceInrPerGram22K: (22 / 24) * fallback24K,
         lastUpdated: new Date().toISOString(),
-        source: 'fallback',
-        error: 'API unavailable'
+        source: "fallback",
+        error: err?.message || "API unavailable",
       };
       setPriceData(fallbackData);
-      onPriceUpdate(fallbackData.priceInrPerGram);
+      onPriceUpdate(computeBreakdown(fallback24K).total);
     } finally {
       setLoading(false);
     }
@@ -65,30 +114,12 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
 
   useEffect(() => {
     fetchGoldPrice();
-    
-    // Auto-refresh every 30 minutes
-    const interval = setInterval(fetchGoldPrice, 30 * 60 * 1000);
+    const interval = setInterval(fetchGoldPrice, 12 * 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  if (loading && !priceData) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Current Gold Price
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="animate-pulse space-y-2">
-            <div className="h-8 bg-muted rounded w-32"></div>
-            <div className="h-4 bg-muted rounded w-24"></div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const displayPrice = priceData ? resolveBasePrice(priceData, purity) : null;
+  const breakdown = displayPrice ? computeBreakdown(displayPrice) : null;
 
   return (
     <Card>
@@ -96,45 +127,85 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-yellow-500" />
-            Current Gold Price
+            Gold Price (INR / gram)
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={fetchGoldPrice}
-            disabled={loading}
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-md overflow-hidden border bg-surface">
+              <button
+                className={`px-2 py-1 text-xs font-medium ${
+                  purity === 24 ? "bg-primary text-white" : "bg-transparent text-muted-foreground"
+                }`}
+                onClick={() => setPurity(24)}
+                disabled={loading}
+              >
+                24K
+              </button>
+              <button
+                className={`px-2 py-1 text-xs font-medium ${
+                  purity === 22 ? "bg-primary text-white" : "bg-transparent text-muted-foreground"
+                }`}
+                onClick={() => setPurity(22)}
+                disabled={loading}
+              >
+                22K
+              </button>
+            </div>
+            <Button variant="ghost" size="sm" onClick={fetchGoldPrice} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         </CardTitle>
-        <CardDescription>
-          Live market rates • Last updated: {' '}
-          {priceData ? new Date(priceData.lastUpdated).toLocaleTimeString() : 'Loading...'}
+        <CardDescription className="flex flex-col sm:flex-row gap-1 sm:justify-between">
+          <div>
+            Live market rates • Last updated:{" "}
+            {priceData ? new Date(priceData.lastUpdated).toLocaleTimeString() : "Loading..."}
+          </div>
+          <Badge variant={priceData?.source === "fallback" ? "secondary" : "default"}>
+            {priceData?.source === "fallback" ? "Estimated" : "Live"}
+          </Badge>
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {priceData && (
+        {loading && !priceData ? (
+          <div className="animate-pulse space-y-2">
+            <div className="h-8 bg-muted rounded w-32"></div>
+            <div className="h-4 bg-muted rounded w-24"></div>
+          </div>
+        ) : breakdown && (
           <div className="space-y-4">
             <div>
               <div className="text-3xl font-bold text-yellow-600">
-                ₹{priceData.priceInrPerGram.toLocaleString()}
+                ₹{breakdown.total.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </div>
-              <div className="text-sm text-muted-foreground">per gram</div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Badge variant={priceData.source === 'fallback' ? 'secondary' : 'default'}>
-                {priceData.source === 'fallback' ? 'Estimated' : 'Live'}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                ${priceData.priceUsdPerOunce}/oz USD
-              </span>
-            </div>
-            
-            {priceData.error && (
-              <div className="text-xs text-amber-600">
-                {priceData.error}
+              <div className="text-sm text-muted-foreground">
+                per gram ({purity}K) including 6% import duty + 1.5% local charges
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-xs">
+                <div className="font-medium">Base Price:</div>
+                <div>₹{breakdown.base.toFixed(2)}</div>
+              </div>
+              <div className="text-xs">
+                <div className="font-medium">Import Duty (6%):</div>
+                <div>₹{breakdown.importDuty.toFixed(2)}</div>
+              </div>
+              <div className="text-xs">
+                <div className="font-medium">Local Charges (1.5%):</div>
+                <div>₹{breakdown.localCharges.toFixed(2)}</div>
+              </div>
+              <div className="text-xs">
+                <div className="font-medium">Total:</div>
+                <div>₹{breakdown.total.toFixed(2)}</div>
+              </div>
+            </div>
+
+            {priceData?.error && (
+              <div className="text-xs text-amber-600">{priceData.error}</div>
             )}
           </div>
         )}
