@@ -25,11 +25,11 @@ const PortfolioSummary = memo(({
 }: PortfolioSummaryProps) => {
   const [stats, setStats] = useState<PortfolioStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [delayedLoading, setDelayedLoading] = useState(true);
   const calculationLock = useRef(false);
   const prevStats = useRef<PortfolioStats | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load persisted stats from localStorage on mount for reload handling
   useEffect(() => {
     const persisted = localStorage.getItem("portfolioStats");
     if (persisted) {
@@ -44,6 +44,7 @@ const PortfolioSummary = memo(({
 
     calculationLock.current = true;
     setIsLoading(true);
+    setDelayedLoading(true);
 
     try {
       const { data: purchases, error } = await supabase
@@ -83,26 +84,30 @@ const PortfolioSummary = memo(({
         };
       }
 
-      // Debounce and sync update
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => {
-        flushSync(() => {
-          setStats(newStats);
-          setIsLoading(false);
-        });
-        prevStats.current = newStats;
-        localStorage.setItem("portfolioStats", JSON.stringify(newStats)); // Persist for reloads
-      }, 800);
+      flushSync(() => {
+        setStats(newStats);
+        setIsLoading(false);
+      });
+
+      prevStats.current = newStats;
+      localStorage.setItem("portfolioStats", JSON.stringify(newStats));
+
+      setTimeout(() => {
+        setDelayedLoading(false);
+      }, 2000);
     } catch (err) {
       console.error("Error calculating stats:", err);
       setIsLoading(false);
+      setDelayedLoading(false);
     } finally {
       calculationLock.current = false;
     }
-  }, []); // Empty dependency for memoization
+  }, []);
 
   useEffect(() => {
-    calculateStats(currentGoldPrice);
+    if (currentGoldPrice > 0) {
+      calculateStats(currentGoldPrice);
+    }
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
@@ -145,6 +150,7 @@ const PortfolioSummary = memo(({
       value: `₹${displayStats.currentValue.toLocaleString()}`,
       icon: DollarSign,
       description: `Using 24K rate: ₹${currentGoldPrice.toFixed(2)}/g`,
+      shimmer: delayedLoading,
     },
     {
       title: "Total Gain/Loss",
@@ -152,6 +158,7 @@ const PortfolioSummary = memo(({
       icon: displayStats.totalGain >= 0 ? TrendingUp : TrendingDown,
       description: `${displayStats.gainPercentage.toFixed(2)}%`,
       isGain: displayStats.totalGain >= 0,
+      shimmer: delayedLoading,
     },
   ];
 
@@ -161,26 +168,38 @@ const PortfolioSummary = memo(({
         <Card key={index}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-            <card.icon
-              className={`h-4 w-4 ${
-                card.isGain !== undefined
-                  ? card.isGain ? "text-green-500" : "text-red-500"
-                  : "text-muted-foreground"
-              }`}
-            />
+            {card.shimmer ? (
+              <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
+            ) : (
+              <card.icon
+                className={`h-4 w-4 ${
+                  card.isGain !== undefined
+                    ? card.isGain
+                      ? "text-green-500"
+                      : "text-red-500"
+                    : "text-muted-foreground"
+                }`}
+              />
+            )}
           </CardHeader>
           <CardContent>
             <div
               className={`text-2xl font-bold ${
+                card.shimmer ? "h-8 bg-muted rounded animate-pulse w-32" : ""
+              } ${
                 card.isGain !== undefined
-                  ? card.isGain ? "text-green-500" : "text-red-500"
+                  ? card.isGain
+                    ? "text-green-500"
+                    : "text-red-500"
                   : ""
               }`}
             >
-              {card.value}
+              {!card.shimmer && card.value}
             </div>
-            <p className="text-xs text-muted-foreground">{card.description}</p>
-            {card.isGain !== undefined && (
+            <p className={`text-xs text-muted-foreground ${card.shimmer ? "h-4 w-40 bg-muted rounded animate-pulse mt-2" : ""}`}>
+              {!card.shimmer && card.description}
+            </p>
+            {card.isGain !== undefined && !card.shimmer && (
               <Badge variant={card.isGain ? "default" : "destructive"} className="mt-2">
                 {card.isGain ? "Profit" : "Loss"}
               </Badge>
