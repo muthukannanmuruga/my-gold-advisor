@@ -1,0 +1,146 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Trash2 } from "lucide-react";
+import { useToast } from "./ui/use-toast";
+
+interface Purchase {
+  id: string;
+  weight_grams: number;
+  purchase_date: string;
+  purchase_price_per_gram: number;
+  carat: number;
+  total_amount: number;
+  description: string | null;
+  created_at: string;
+}
+
+interface PurchasesListProps {
+  refreshTrigger: number;
+  onPurchaseDeleted: () => void;
+}
+
+export const PurchasesList = ({ refreshTrigger, onPurchaseDeleted }: PurchasesListProps) => {
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchPurchases = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('gold_purchases')
+        .select('*')
+        .order('purchase_date', { ascending: false });
+
+      if (error) throw error;
+      setPurchases(data || []);
+    } catch (error) {
+      console.error("Error fetching purchases:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load purchases",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPurchases();
+  }, [refreshTrigger]);
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('gold_purchases')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Purchase deleted",
+        description: "Purchase removed from portfolio",
+      });
+
+      onPurchaseDeleted();
+    } catch (error) {
+      console.error("Error deleting purchase:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete purchase",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Your Gold Purchases</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="animate-pulse space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-muted rounded"></div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Your Gold Purchases</CardTitle>
+        <CardDescription>
+          {purchases.length} purchase{purchases.length !== 1 ? 's' : ''} recorded
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {purchases.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">
+            No purchases recorded yet. Add your first gold purchase above!
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {purchases.map((purchase) => (
+              <div
+                key={purchase.id}
+                className="flex items-center justify-between p-4 border rounded-lg"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="secondary">{purchase.carat}K</Badge>
+                    <span className="font-medium">{purchase.weight_grams}g</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <p>₹{purchase.purchase_price_per_gram.toLocaleString()}/gram</p>
+                    <p>Total: ₹{purchase.total_amount.toLocaleString()}</p>
+                    <p>Date: {new Date(purchase.purchase_date).toLocaleDateString()}</p>
+                    {purchase.description && (
+                      <p className="mt-1">{purchase.description}</p>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDelete(purchase.id)}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
