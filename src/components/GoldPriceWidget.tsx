@@ -158,7 +158,14 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
         <CardDescription className="flex flex-col sm:flex-row gap-1 sm:justify-between">
           <div>
             Live market rates • Last updated:{" "}
-            {priceData ? new Date(priceData.lastUpdated).toLocaleTimeString() : "Loading..."}
+            {priceData ? (
+              new Date(priceData.lastUpdated).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+              })
+            ) : "Loading..."}
           </div>
           <Badge variant={priceData?.source === "fallback" ? "secondary" : "default"}>
             {priceData?.source === "fallback" ? "Estimated" : "Live"}
