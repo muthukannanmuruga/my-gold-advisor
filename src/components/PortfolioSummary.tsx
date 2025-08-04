@@ -12,6 +12,7 @@ interface PortfolioStats {
   totalGain: number;
   gainPercentage: number;
   averagePurchasePrice: number;
+  averagePurePurchasePrice: number;
 }
 
 interface PortfolioSummaryProps {
@@ -33,8 +34,13 @@ const PortfolioSummary = memo(({
   useEffect(() => {
     const persisted = localStorage.getItem("portfolioStats");
     if (persisted) {
-      prevStats.current = JSON.parse(persisted);
-      setStats(prevStats.current);
+      try {
+        prevStats.current = JSON.parse(persisted);
+        setStats(prevStats.current);
+      } catch {
+        prevStats.current = null;
+        setStats(null);
+      }
       setIsLoading(false);
     }
   }, []);
@@ -62,10 +68,16 @@ const PortfolioSummary = memo(({
           totalGain: 0,
           gainPercentage: 0,
           averagePurchasePrice: 0,
+          averagePurePurchasePrice: 0,
         };
       } else {
         const totalWeight = purchases.reduce((sum, p) => sum + (p.weight_grams || 0), 0);
         const totalInvestment = purchases.reduce((sum, p) => sum + (p.total_amount || 0), 0);
+
+        const pureGoldWeight = purchases.reduce((sum, p) => {
+          const purityFactor = (p.carat ?? 24) / 24;
+          return sum + (p.weight_grams || 0) * purityFactor;
+        }, 0);
 
         const currentValue = purchases.reduce((sum, p) => {
           const purityFactor = (p.carat ?? 24) / 24;
@@ -81,6 +93,7 @@ const PortfolioSummary = memo(({
           totalGain,
           gainPercentage: totalInvestment > 0 ? (totalGain / totalInvestment) * 100 : 0,
           averagePurchasePrice: totalWeight > 0 ? totalInvestment / totalWeight : 0,
+          averagePurePurchasePrice: pureGoldWeight > 0 ? totalInvestment / pureGoldWeight : 0,
         };
       }
 
@@ -92,7 +105,7 @@ const PortfolioSummary = memo(({
       prevStats.current = newStats;
       localStorage.setItem("portfolioStats", JSON.stringify(newStats));
 
-      setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         setDelayedLoading(false);
       }, 2000);
     } catch (err) {
@@ -132,6 +145,24 @@ const PortfolioSummary = memo(({
 
   const displayStats = stats || prevStats.current!;
 
+  const avg = displayStats.averagePurchasePrice;
+  const pure = displayStats.averagePurePurchasePrice;
+  const showPurityAdjusted =
+    avg > 0 && Math.abs(pure - avg) / avg > 0.0001; // show only if difference > 0.01%
+
+  const investmentDescription = showPurityAdjusted
+    ? `Avg: ₹${avg.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}/g · Purity-adjusted Avg: ₹${pure.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}/g`
+    : `Avg: ₹${avg.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}/g`;
+
   const statCards = [
     {
       title: "Total Weight",
@@ -143,13 +174,16 @@ const PortfolioSummary = memo(({
       title: "Total Investment",
       value: `₹${displayStats.totalInvestment.toLocaleString("en-IN")}`,
       icon: () => <span className="text-xl">₹</span>,
-      description: `Avg: ₹${displayStats.averagePurchasePrice.toFixed(2)}/g`,
+      description: investmentDescription,
     },
     {
       title: "Current Value",
       value: `₹${displayStats.currentValue.toLocaleString("en-IN")}`,
       icon: () => <span className="text-xl">₹</span>,
-      description: `Using 24K rate: ₹${currentGoldPrice.toFixed(2)}/g`,
+      description: `Using 24K rate: ₹${currentGoldPrice.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}/g`,
       shimmer: delayedLoading,
     },
     {
