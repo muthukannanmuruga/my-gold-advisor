@@ -31,6 +31,29 @@ const PortfolioSummary = memo(({
   const prevStats = useRef<PortfolioStats | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Formatters (stable)
+  const inrFormatter = useRef(
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+      currencyDisplay: "symbol", // typically shows as "₹"
+    })
+  ).current;
+
+  const numberFormatter2 = useRef(
+    new Intl.NumberFormat("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  ).current;
+
+  const formatINR = useCallback((value: number) => {
+    // Ensures we get ₹ and two decimals
+    return inrFormatter.format(value).replace(/\s?INR/, "₹");
+  }, [inrFormatter]);
+
   useEffect(() => {
     const persisted = localStorage.getItem("portfolioStats");
     if (persisted) {
@@ -71,8 +94,14 @@ const PortfolioSummary = memo(({
           averagePurePurchasePrice: 0,
         };
       } else {
-        const totalWeight = purchases.reduce((sum, p) => sum + (p.weight_grams || 0), 0);
-        const totalInvestment = purchases.reduce((sum, p) => sum + (p.total_amount || 0), 0);
+        const totalWeight = purchases.reduce(
+          (sum, p) => sum + (p.weight_grams || 0),
+          0
+        );
+        const totalInvestment = purchases.reduce(
+          (sum, p) => sum + (p.total_amount || 0),
+          0
+        );
 
         const pureGoldWeight = purchases.reduce((sum, p) => {
           const purityFactor = (p.carat ?? 24) / 24;
@@ -91,19 +120,40 @@ const PortfolioSummary = memo(({
           totalInvestment,
           currentValue,
           totalGain,
-          gainPercentage: totalInvestment > 0 ? (totalGain / totalInvestment) * 100 : 0,
-          averagePurchasePrice: totalWeight > 0 ? totalInvestment / totalWeight : 0,
-          averagePurePurchasePrice: pureGoldWeight > 0 ? totalInvestment / pureGoldWeight : 0,
+          gainPercentage:
+            totalInvestment > 0
+              ? (totalGain / totalInvestment) * 100
+              : 0,
+          averagePurchasePrice:
+            totalWeight > 0 ? totalInvestment / totalWeight : 0,
+          averagePurePurchasePrice:
+            pureGoldWeight > 0 ? totalInvestment / pureGoldWeight : 0,
         };
       }
 
+      // Optionally round stored stats to a reasonable precision (but keep full precision for calculations)
+      const roundedStats: PortfolioStats = {
+        ...newStats,
+        totalWeight: parseFloat(newStats.totalWeight.toFixed(6)),
+        totalInvestment: parseFloat(newStats.totalInvestment.toFixed(2)),
+        currentValue: parseFloat(newStats.currentValue.toFixed(2)),
+        totalGain: parseFloat(newStats.totalGain.toFixed(2)),
+        gainPercentage: parseFloat(newStats.gainPercentage.toFixed(2)),
+        averagePurchasePrice: parseFloat(
+          newStats.averagePurchasePrice.toFixed(4)
+        ),
+        averagePurePurchasePrice: parseFloat(
+          newStats.averagePurePurchasePrice.toFixed(4)
+        ),
+      };
+
       flushSync(() => {
-        setStats(newStats);
+        setStats(roundedStats);
         setIsLoading(false);
       });
 
-      prevStats.current = newStats;
-      localStorage.setItem("portfolioStats", JSON.stringify(newStats));
+      prevStats.current = roundedStats;
+      localStorage.setItem("portfolioStats", JSON.stringify(roundedStats));
 
       timeoutRef.current = setTimeout(() => {
         setDelayedLoading(false);
@@ -115,7 +165,7 @@ const PortfolioSummary = memo(({
     } finally {
       calculationLock.current = false;
     }
-  }, []);
+  }, [formatINR]);
 
   useEffect(() => {
     if (currentGoldPrice > 0) {
@@ -150,18 +200,11 @@ const PortfolioSummary = memo(({
   const showPurityAdjusted =
     avg > 0 && Math.abs(pure - avg) / avg > 0.0001; // show only if difference > 0.01%
 
+  const formattedAvg = numberFormatter2.format(avg);
+  const formattedPure = numberFormatter2.format(pure);
   const investmentDescription = showPurityAdjusted
-    ? `Avg: ₹${avg.toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}/g · Purity-adjusted Avg: ₹${pure.toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}/g`
-    : `Avg: ₹${avg.toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}/g`;
+    ? `Avg: ₹${formattedAvg}/g · Purity-adjusted Avg: ₹${formattedPure}/g`
+    : `Avg: ₹${formattedAvg}/g`;
 
   const statCards = [
     {
@@ -172,23 +215,20 @@ const PortfolioSummary = memo(({
     },
     {
       title: "Total Investment",
-      value: `₹${displayStats.totalInvestment.toLocaleString("en-IN")}`,
+      value: formatINR(displayStats.totalInvestment),
       icon: () => <span className="text-xl">₹</span>,
       description: investmentDescription,
     },
     {
       title: "Current Value",
-      value: `₹${displayStats.currentValue.toLocaleString("en-IN")}`,
+      value: formatINR(displayStats.currentValue),
       icon: () => <span className="text-xl">₹</span>,
-      description: `Using 24K rate: ₹${currentGoldPrice.toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}/g`,
+      description: `Using 24K rate: ₹${numberFormatter2.format(currentGoldPrice)}/g`,
       shimmer: delayedLoading,
     },
     {
       title: "Total Gain/Loss",
-      value: `₹${Math.abs(displayStats.totalGain).toLocaleString("en-IN")}`,
+      value: formatINR(Math.abs(displayStats.totalGain)),
       icon: displayStats.totalGain >= 0 ? TrendingUp : TrendingDown,
       description: `${displayStats.gainPercentage.toFixed(2)}%`,
       isGain: displayStats.totalGain >= 0,
@@ -230,7 +270,13 @@ const PortfolioSummary = memo(({
             >
               {!card.shimmer && card.value}
             </div>
-            <p className={`text-xs text-muted-foreground ${card.shimmer ? "h-4 w-40 bg-muted rounded animate-pulse mt-2" : ""}`}>
+            <p
+              className={`text-xs text-muted-foreground ${
+                card.shimmer
+                  ? "h-4 w-40 bg-muted rounded animate-pulse mt-2"
+                  : ""
+              }`}
+            >
               {!card.shimmer && card.description}
             </p>
             {card.isGain !== undefined && !card.shimmer && (
