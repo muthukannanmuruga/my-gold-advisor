@@ -10,6 +10,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { RefreshCw, TrendingUp } from "lucide-react";
 import { useToast } from "./ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface GoldApiResponse {
   price_gram_24k?: number;
@@ -86,6 +87,17 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
       };
 
       setPriceData(data);
+      
+      // Store price in history table
+      try {
+        await supabase.from("gold_price_history").insert({
+          price_inr_per_gram: data.priceInrPerGram24K,
+          source: data.source
+        });
+      } catch (historyError) {
+        console.error("Error storing price history:", historyError);
+      }
+      
       // Always send 24K price to parent for portfolio calculations
       onPriceUpdate(computeBreakdown(data.priceInrPerGram24K).total);
 

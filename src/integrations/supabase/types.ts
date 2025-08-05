@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      gold_price_history: {
+        Row: {
+          created_at: string
+          id: string
+          price_inr_per_gram: number
+          price_usd_per_ounce: number | null
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          price_inr_per_gram: number
+          price_usd_per_ounce?: number | null
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          price_inr_per_gram?: number
+          price_usd_per_ounce?: number | null
+          source?: string | null
+        }
+        Relationships: []
+      }
       gold_purchases: {
         Row: {
           carat: number
