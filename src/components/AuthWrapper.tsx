@@ -14,8 +14,10 @@ export const AuthWrapper = ({ children }: AuthWrapperProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('AuthWrapper useEffect running...');
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session:', session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -31,6 +33,7 @@ export const AuthWrapper = ({ children }: AuthWrapperProps) => {
   }, []);
 
   if (loading) {
+    console.log('AuthWrapper: Still loading...');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -39,6 +42,7 @@ export const AuthWrapper = ({ children }: AuthWrapperProps) => {
   }
 
   if (!user) {
+    console.log('AuthWrapper: No user, showing auth form');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
@@ -61,5 +65,6 @@ export const AuthWrapper = ({ children }: AuthWrapperProps) => {
     );
   }
 
+  console.log('AuthWrapper: User authenticated, rendering children');
   return <>{children}</>;
 };

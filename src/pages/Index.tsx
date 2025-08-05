@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useSession } from "@/hooks/useSession"; // ✅ import the hook
 
 const Index = () => {
+  console.log('Index component rendering...');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [currentGoldPrice, setCurrentGoldPrice] = useState(7200); // Default fallback
   const { toast } = useToast();
