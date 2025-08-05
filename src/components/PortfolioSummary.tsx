@@ -14,6 +14,7 @@ interface PortfolioStats {
   averagePurchasePrice: number;
   averagePurePurchasePrice: number;
   xirr: number;
+  purchaseCount: number;
 }
 
 interface PortfolioSummaryProps {
@@ -39,7 +40,6 @@ const PortfolioSummary = memo(({
       currency: "INR",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-      currencyDisplay: "symbol", // typically shows as "₹"
     })
   ).current;
 
@@ -51,7 +51,6 @@ const PortfolioSummary = memo(({
   ).current;
 
   const formatINR = useCallback((value: number) => {
-    // Ensures we get ₹ and two decimals
     return inrFormatter.format(value).replace(/\s?INR/, "₹");
   }, [inrFormatter]);
 
@@ -94,6 +93,7 @@ const PortfolioSummary = memo(({
           averagePurchasePrice: 0,
           averagePurePurchasePrice: 0,
           xirr: 0,
+          purchaseCount: 0,
         };
       } else {
         const totalWeight = purchases.reduce(
@@ -117,22 +117,24 @@ const PortfolioSummary = memo(({
 
         const totalGain = currentValue - totalInvestment;
 
-        // Calculate Simple Annualized Return (XIRR approximation)
+        // XIRR Approximation
         let xirrValue = 0;
         try {
           if (purchases.length > 0 && currentValue > 0) {
-            // Calculate time-weighted return
-            const oldestPurchase = purchases.reduce((oldest, p) => 
+            const oldestPurchase = purchases.reduce((oldest, p) =>
               new Date(p.purchase_date) < new Date(oldest.purchase_date) ? p : oldest
             );
-            
-            const daysSinceFirst = Math.max(1, 
-              (new Date().getTime() - new Date(oldestPurchase.purchase_date).getTime()) / (1000 * 60 * 60 * 24)
+
+            const daysSinceFirst = Math.max(
+              1,
+              (new Date().getTime() -
+                new Date(oldestPurchase.purchase_date).getTime()) /
+                (1000 * 60 * 60 * 24)
             );
-            
+
             const totalReturn = (currentValue - totalInvestment) / totalInvestment;
             const yearsInvested = daysSinceFirst / 365.25;
-            
+
             if (yearsInvested > 0) {
               xirrValue = (Math.pow(1 + totalReturn, 1 / yearsInvested) - 1) * 100;
               if (!isFinite(xirrValue)) xirrValue = 0;
@@ -157,10 +159,10 @@ const PortfolioSummary = memo(({
           averagePurePurchasePrice:
             pureGoldWeight > 0 ? totalInvestment / pureGoldWeight : 0,
           xirr: xirrValue,
+          purchaseCount: purchases.length,
         };
       }
 
-      // Optionally round stored stats to a reasonable precision (but keep full precision for calculations)
       const roundedStats: PortfolioStats = {
         ...newStats,
         totalWeight: parseFloat(newStats.totalWeight.toFixed(6)),
@@ -168,13 +170,10 @@ const PortfolioSummary = memo(({
         currentValue: parseFloat(newStats.currentValue.toFixed(2)),
         totalGain: parseFloat(newStats.totalGain.toFixed(2)),
         gainPercentage: parseFloat(newStats.gainPercentage.toFixed(2)),
-        averagePurchasePrice: parseFloat(
-          newStats.averagePurchasePrice.toFixed(4)
-        ),
-        averagePurePurchasePrice: parseFloat(
-          newStats.averagePurePurchasePrice.toFixed(4)
-        ),
+        averagePurchasePrice: parseFloat(newStats.averagePurchasePrice.toFixed(4)),
+        averagePurePurchasePrice: parseFloat(newStats.averagePurePurchasePrice.toFixed(4)),
         xirr: parseFloat(newStats.xirr.toFixed(2)),
+        purchaseCount: newStats.purchaseCount,
       };
 
       flushSync(() => {
@@ -208,8 +207,8 @@ const PortfolioSummary = memo(({
 
   if (isLoading && !prevStats.current) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
           <Card key={i}>
             <CardContent className="p-6">
               <div className="animate-pulse space-y-2">
@@ -228,7 +227,7 @@ const PortfolioSummary = memo(({
   const avg = displayStats.averagePurchasePrice;
   const pure = displayStats.averagePurePurchasePrice;
   const showPurityAdjusted =
-    avg > 0 && Math.abs(pure - avg) / avg > 0.0001; // show only if difference > 0.01%
+    avg > 0 && Math.abs(pure - avg) / avg > 0.0001;
 
   const formattedAvg = numberFormatter2.format(avg);
   const formattedPure = numberFormatter2.format(pure);
@@ -264,20 +263,25 @@ const PortfolioSummary = memo(({
       isGain: displayStats.totalGain >= 0,
       shimmer: delayedLoading,
     },
+    {
+      title: "XIRR (Annual Return)",
+      value: `${displayStats.xirr.toFixed(2)}%`,
+      icon: Percent,
+      description: "Annualized return rate",
+      isGain: displayStats.xirr >= 0,
+      shimmer: delayedLoading,
+    },
+    {
+      title: "Purchases",
+      value: `${displayStats.purchaseCount}`,
+      icon: () => <span className="text-xl">#</span>,
+      description: "Total number of gold entries",
+    },
   ];
 
-  const xirrCard = {
-    title: "XIRR (Annual Return)",
-    value: `${displayStats.xirr.toFixed(2)}%`,
-    icon: Percent,
-    description: "Annualized return rate",
-    isGain: displayStats.xirr >= 0,
-    shimmer: delayedLoading,
-  };
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-      {[...statCards, xirrCard].map((card, index) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      {statCards.map((card, index) => (
         <Card key={index}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
@@ -311,15 +315,16 @@ const PortfolioSummary = memo(({
             </div>
             <p
               className={`text-xs text-muted-foreground ${
-                card.shimmer
-                  ? "h-4 w-40 bg-muted rounded animate-pulse mt-2"
-                  : ""
+                card.shimmer ? "h-4 w-40 bg-muted rounded animate-pulse mt-2" : ""
               }`}
             >
               {!card.shimmer && card.description}
             </p>
             {card.isGain !== undefined && !card.shimmer && (
-              <Badge variant={card.isGain ? "default" : "destructive"} className="mt-2">
+              <Badge
+                variant={card.isGain ? "default" : "destructive"}
+                className="mt-2"
+              >
                 {card.isGain ? "Profit" : "Loss"}
               </Badge>
             )}
