@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { TrendingUp, TrendingDown, Weight } from "lucide-react";
+import { TrendingUp, TrendingDown, Weight, Percent } from "lucide-react";
 
 interface PortfolioStats {
   totalWeight: number;
@@ -13,6 +13,7 @@ interface PortfolioStats {
   gainPercentage: number;
   averagePurchasePrice: number;
   averagePurePurchasePrice: number;
+  xirr: number;
 }
 
 interface PortfolioSummaryProps {
@@ -92,6 +93,7 @@ const PortfolioSummary = memo(({
           gainPercentage: 0,
           averagePurchasePrice: 0,
           averagePurePurchasePrice: 0,
+          xirr: 0,
         };
       } else {
         const totalWeight = purchases.reduce(
@@ -115,6 +117,32 @@ const PortfolioSummary = memo(({
 
         const totalGain = currentValue - totalInvestment;
 
+        // Calculate Simple Annualized Return (XIRR approximation)
+        let xirrValue = 0;
+        try {
+          if (purchases.length > 0 && currentValue > 0) {
+            // Calculate time-weighted return
+            const oldestPurchase = purchases.reduce((oldest, p) => 
+              new Date(p.purchase_date) < new Date(oldest.purchase_date) ? p : oldest
+            );
+            
+            const daysSinceFirst = Math.max(1, 
+              (new Date().getTime() - new Date(oldestPurchase.purchase_date).getTime()) / (1000 * 60 * 60 * 24)
+            );
+            
+            const totalReturn = (currentValue - totalInvestment) / totalInvestment;
+            const yearsInvested = daysSinceFirst / 365.25;
+            
+            if (yearsInvested > 0) {
+              xirrValue = (Math.pow(1 + totalReturn, 1 / yearsInvested) - 1) * 100;
+              if (!isFinite(xirrValue)) xirrValue = 0;
+            }
+          }
+        } catch (error) {
+          console.log("XIRR calculation failed:", error);
+          xirrValue = 0;
+        }
+
         newStats = {
           totalWeight,
           totalInvestment,
@@ -128,6 +156,7 @@ const PortfolioSummary = memo(({
             totalWeight > 0 ? totalInvestment / totalWeight : 0,
           averagePurePurchasePrice:
             pureGoldWeight > 0 ? totalInvestment / pureGoldWeight : 0,
+          xirr: xirrValue,
         };
       }
 
@@ -145,6 +174,7 @@ const PortfolioSummary = memo(({
         averagePurePurchasePrice: parseFloat(
           newStats.averagePurePurchasePrice.toFixed(4)
         ),
+        xirr: parseFloat(newStats.xirr.toFixed(2)),
       };
 
       flushSync(() => {
@@ -236,9 +266,18 @@ const PortfolioSummary = memo(({
     },
   ];
 
+  const xirrCard = {
+    title: "XIRR (Annual Return)",
+    value: `${displayStats.xirr.toFixed(2)}%`,
+    icon: Percent,
+    description: "Annualized return rate",
+    isGain: displayStats.xirr >= 0,
+    shimmer: delayedLoading,
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {statCards.map((card, index) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      {[...statCards, xirrCard].map((card, index) => (
         <Card key={index}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
