@@ -1,5 +1,5 @@
 // Charts component with time range filtering
-import { useEffect, useState, memo } from "react";
+import React, { useEffect, useState, memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "./ui/chart";
@@ -133,8 +133,16 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
     fetchPortfolioData();
   }, [refreshTrigger]);
 
-  const filteredGoldPrices = filterDataByTimeRange(goldPrices, timeRange);
-  const filteredPortfolioData = filterDataByTimeRange(portfolioData, timeRange);
+  // Ensure filtered data is recalculated when dependencies change
+  const filteredGoldPrices = React.useMemo(() => 
+    filterDataByTimeRange(goldPrices, timeRange), 
+    [goldPrices, timeRange]
+  );
+  
+  const filteredPortfolioData = React.useMemo(() => 
+    filterDataByTimeRange(portfolioData, timeRange), 
+    [portfolioData, timeRange]
+  );
 
   const chartStyle = "w-full lg:w-1/2";
 
