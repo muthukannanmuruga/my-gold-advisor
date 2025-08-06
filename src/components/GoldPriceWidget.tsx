@@ -88,10 +88,11 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
 
       setPriceData(data);
       
-      // Store price in history table
+      // Store price in history table with both 24K and 22K prices
       try {
         await supabase.from("gold_price_history").insert({
           price_inr_per_gram: data.priceInrPerGram24K,
+          price_inr_per_gram_22k: data.priceInrPerGram22K,
           source: data.source
         });
       } catch (historyError) {

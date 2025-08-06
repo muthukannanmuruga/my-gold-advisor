@@ -36,12 +36,14 @@ serve(async (req) => {
 
     const json = await resp.json();
     
-    // Calculate 24K price per gram
+    // Calculate both 24K and 22K price per gram
     let price24K = json.price_gram_24k ?? 
                   (json.price ? json.price / 31.1035 : null);
+    let price22K = json.price_gram_22k ?? 
+                  (price24K ? (22 / 24) * price24K : null);
 
-    if (!price24K) {
-      throw new Error("Unable to get 24K gold price");
+    if (!price24K || !price22K) {
+      throw new Error("Unable to get gold prices");
     }
 
     // Check if we already have a price entry for today
@@ -61,11 +63,12 @@ serve(async (req) => {
       );
     }
 
-    // Store the price
+    // Store both prices
     const { error: insertError } = await supabase
       .from('gold_price_history')
       .insert({
         price_inr_per_gram: Number(price24K.toFixed(2)),
+        price_inr_per_gram_22k: Number(price22K.toFixed(2)),
         source: 'scheduled-api'
       });
 
@@ -73,13 +76,14 @@ serve(async (req) => {
       throw insertError;
     }
 
-    console.log(`Stored gold price: ₹${price24K.toFixed(2)} per gram`);
+    console.log(`Stored gold prices: 24K ₹${price24K.toFixed(2)}, 22K ₹${price22K.toFixed(2)} per gram`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        price: price24K.toFixed(2),
-        message: 'Gold price stored successfully' 
+        price24K: price24K.toFixed(2),
+        price22K: price22K.toFixed(2),
+        message: 'Gold prices stored successfully' 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

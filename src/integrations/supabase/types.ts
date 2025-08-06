@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           id: string
           price_inr_per_gram: number
+          price_inr_per_gram_22k: number | null
           price_usd_per_ounce: number | null
           source: string | null
         }
@@ -26,6 +27,7 @@ export type Database = {
           created_at?: string
           id?: string
           price_inr_per_gram: number
+          price_inr_per_gram_22k?: number | null
           price_usd_per_ounce?: number | null
           source?: string | null
         }
@@ -33,6 +35,7 @@ export type Database = {
           created_at?: string
           id?: string
           price_inr_per_gram?: number
+          price_inr_per_gram_22k?: number | null
           price_usd_per_ounce?: number | null
           source?: string | null
         }

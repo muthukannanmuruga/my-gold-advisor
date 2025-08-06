@@ -17,7 +17,8 @@ import { TrendingUp } from "lucide-react";
 interface PriceDataPoint {
   date: string;
   displayDate: string;
-  price: number;
+  price24k: number;
+  price22k: number;
   investment?: number;
   currentValue?: number;
 }
@@ -31,7 +32,8 @@ type TimeRange = "1week" | "1month" | "3month" | "1year";
 const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
   const [goldPrices, setGoldPrices] = useState<PriceDataPoint[]>([]);
   const [portfolioData, setPortfolioData] = useState<PriceDataPoint[]>([]);
-  const [timeRange, setTimeRange] = useState<TimeRange>("1month");
+  const [goldTimeRange, setGoldTimeRange] = useState<TimeRange>("1month");
+  const [portfolioTimeRange, setPortfolioTimeRange] = useState<TimeRange>("1month");
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -85,7 +87,8 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
         const date = new Date(entry.created_at);
         uniqueMap.set(dateKey, {
           date: dateKey,
-          price: Number(entry.price_inr_per_gram),
+          price24k: Number(entry.price_inr_per_gram),
+          price22k: Number(entry.price_inr_per_gram_22k || (entry.price_inr_per_gram * 22 / 24)),
           displayDate: date.toLocaleDateString("en-IN", {
             day: "2-digit",
             month: "short",
@@ -135,59 +138,72 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
 
   // Ensure filtered data is recalculated when dependencies change
   const filteredGoldPrices = React.useMemo(() => 
-    filterDataByTimeRange(goldPrices, timeRange), 
-    [goldPrices, timeRange]
+    filterDataByTimeRange(goldPrices, goldTimeRange), 
+    [goldPrices, goldTimeRange]
   );
   
   const filteredPortfolioData = React.useMemo(() => 
-    filterDataByTimeRange(portfolioData, timeRange), 
-    [portfolioData, timeRange]
+    filterDataByTimeRange(portfolioData, portfolioTimeRange), 
+    [portfolioData, portfolioTimeRange]
   );
 
   const chartStyle = "w-full lg:w-1/2";
 
   return (
-    <div className="space-y-4">
-      {/* Time Range Selector */}
-      <div className="flex justify-center">
-        <Select value={timeRange} onValueChange={(value: TimeRange) => setTimeRange(value)}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Select time range" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1week">1 Week</SelectItem>
-            <SelectItem value="1month">1 Month</SelectItem>
-            <SelectItem value="3month">3 Months</SelectItem>
-            <SelectItem value="1year">1 Year</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-col lg:flex-row gap-6">
         {/* Chart 1: Gold Price Over Time */}
         <Card className={chartStyle}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Gold Price Over Time
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Gold Price Over Time
+              </CardTitle>
+              {/* Time Range Selector for Gold Chart */}
+              <Select value={goldTimeRange} onValueChange={(value: TimeRange) => setGoldTimeRange(value)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Range" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1week">1 Week</SelectItem>
+                  <SelectItem value="1month">1 Month</SelectItem>
+                  <SelectItem value="3month">3 Months</SelectItem>
+                  <SelectItem value="1year">1 Year</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={{ price: { label: "Gold Price (₹/gram)", color: "hsl(var(--chart-1))" } }}>
+            <ChartContainer config={{ 
+              price24k: { label: "24K Gold Price (₹/gram)", color: "hsl(var(--chart-1))" },
+              price22k: { label: "22K Gold Price (₹/gram)", color: "hsl(var(--chart-2))" }
+            }}>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={filteredGoldPrices}>
                   <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
                   <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={formatCurrency} />
                   <ChartTooltip
-                    content={<ChartTooltipContent formatter={(value) => [formatCurrency(value as number), "Gold Price"]} />}
+                    content={<ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number), name]} />}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="price24k"
+                    stroke="var(--color-price24k, #8884d8)"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 6 }}
+                    name="24K Gold"
                   />
                   <Line
                     type="monotone"
-                    dataKey="price"
-                    stroke="var(--color-price)"
+                    dataKey="price22k"
+                    stroke="var(--color-price22k, #82ca9d)"
                     strokeWidth={2}
-                    dot={{ fill: "var(--color-price)", strokeWidth: 2, r: 3 }}
+                    dot={{ r: 3 }}
                     activeDot={{ r: 6 }}
+                    name="22K Gold"
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -198,10 +214,24 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
         {/* Chart 2: Investment vs Current Value */}
         <Card className={chartStyle}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Portfolio Value Over Time
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Portfolio Value Over Time
+              </CardTitle>
+              {/* Time Range Selector for Portfolio Chart */}
+              <Select value={portfolioTimeRange} onValueChange={(value: TimeRange) => setPortfolioTimeRange(value)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Range" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1week">1 Week</SelectItem>
+                  <SelectItem value="1month">1 Month</SelectItem>
+                  <SelectItem value="3month">3 Months</SelectItem>
+                  <SelectItem value="1year">1 Year</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
             <ChartContainer config={{ investment: { label: "Investment" }, currentValue: { label: "Current Value" } }}>
