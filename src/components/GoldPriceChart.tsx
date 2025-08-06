@@ -1,8 +1,9 @@
-// New component to render both charts side by side
+// Charts component with time range filtering
 import { useEffect, useState, memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "./ui/chart";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import {
   LineChart,
   Line,
@@ -25,9 +26,12 @@ interface DualGoldChartsProps {
   refreshTrigger: number;
 }
 
+type TimeRange = "1week" | "1month" | "3month" | "1year";
+
 const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
   const [goldPrices, setGoldPrices] = useState<PriceDataPoint[]>([]);
   const [portfolioData, setPortfolioData] = useState<PriceDataPoint[]>([]);
+  const [timeRange, setTimeRange] = useState<TimeRange>("1month");
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -38,144 +42,191 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
     }).format(value);
   };
 
+  const getDateRangeFilter = (range: TimeRange) => {
+    const now = new Date();
+    const cutoffDate = new Date();
+    
+    switch (range) {
+      case "1week":
+        cutoffDate.setDate(now.getDate() - 7);
+        break;
+      case "1month":
+        cutoffDate.setMonth(now.getMonth() - 1);
+        break;
+      case "3month":
+        cutoffDate.setMonth(now.getMonth() - 3);
+        break;
+      case "1year":
+        cutoffDate.setFullYear(now.getFullYear() - 1);
+        break;
+    }
+    
+    return cutoffDate.toISOString().split('T')[0];
+  };
+
+  const filterDataByTimeRange = (data: PriceDataPoint[], range: TimeRange) => {
+    const cutoffDate = getDateRangeFilter(range);
+    return data.filter(item => item.date >= cutoffDate);
+  };
+
+  const fetchGoldPrices = async () => {
+    const { data, error } = await supabase
+      .from("gold_price_history")
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (error || !data) return;
+
+    const uniqueMap = new Map();
+
+    data.forEach((entry) => {
+      const dateKey = entry.created_at.split("T")[0];
+      if (!uniqueMap.has(dateKey)) {
+        const date = new Date(entry.created_at);
+        uniqueMap.set(dateKey, {
+          date: dateKey,
+          price: Number(entry.price_inr_per_gram),
+          displayDate: date.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "2-digit",
+          }),
+        });
+      }
+    });
+
+    setGoldPrices(Array.from(uniqueMap.values()));
+  };
+
+  const fetchPortfolioData = async () => {
+    const { data, error } = await supabase
+      .from("portfolio_metrics")
+      .select("*")
+      .order("date", { ascending: true });
+
+    if (error || !data) return;
+
+    const uniqueMap = new Map();
+
+    data.forEach((entry) => {
+      const dateKey = entry.date;
+      if (!uniqueMap.has(dateKey)) {
+        const date = new Date(entry.date);
+        uniqueMap.set(dateKey, {
+          date: dateKey,
+          investment: Number(entry.investment),
+          currentValue: Number(entry.current_value),
+          displayDate: date.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "2-digit",
+          }),
+        });
+      }
+    });
+
+    setPortfolioData(Array.from(uniqueMap.values()));
+  };
+
   useEffect(() => {
-    const fetchGoldPrices = async () => {
-      const { data, error } = await supabase
-        .from("gold_price_history")
-        .select("*")
-        .order("created_at", { ascending: true });
-
-      if (error || !data) return;
-
-      const uniqueMap = new Map();
-
-      data.forEach((entry) => {
-        const dateKey = entry.created_at.split("T")[0];
-        if (!uniqueMap.has(dateKey)) {
-          const date = new Date(entry.created_at);
-          uniqueMap.set(dateKey, {
-            date: dateKey,
-            price: Number(entry.price_inr_per_gram),
-            displayDate: date.toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "2-digit",
-            }),
-          });
-        }
-      });
-
-      setGoldPrices(Array.from(uniqueMap.values()));
-    };
-
-    const fetchPortfolioData = async () => {
-      const { data, error } = await supabase
-        .from("portfolio_metrics")
-        .select("*")
-        .order("date", { ascending: true });
-
-      if (error || !data) return;
-
-      const uniqueMap = new Map();
-
-      data.forEach((entry) => {
-        const dateKey = entry.date.split("T")[0];
-        if (!uniqueMap.has(dateKey)) {
-          const date = new Date(entry.date);
-          uniqueMap.set(dateKey, {
-            date: dateKey,
-            investment: Number(entry.investment),
-            currentValue: Number(entry.current_value),
-            displayDate: date.toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "2-digit",
-            }),
-          });
-        }
-      });
-
-      setPortfolioData(Array.from(uniqueMap.values()));
-    };
-
     fetchGoldPrices();
     fetchPortfolioData();
   }, [refreshTrigger]);
 
+  const filteredGoldPrices = filterDataByTimeRange(goldPrices, timeRange);
+  const filteredPortfolioData = filterDataByTimeRange(portfolioData, timeRange);
+
   const chartStyle = "w-full lg:w-1/2";
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4">
-      {/* Chart 1: Gold Price Over Time */}
-      <Card className={chartStyle}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Gold Price Over Time
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={{ price: { label: "Gold Price (\u20B9/gram)", color: "hsl(var(--chart-1))" } }}>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={goldPrices}>
-                <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={formatCurrency} />
-                <ChartTooltip
-                  content={<ChartTooltipContent formatter={(value) => [formatCurrency(value as number), "Gold Price"]} />}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="price"
-                  stroke="var(--color-price)"
-                  strokeWidth={2}
-                  dot={{ fill: "var(--color-price)", strokeWidth: 2, r: 3 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      {/* Time Range Selector */}
+      <div className="flex justify-center">
+        <Select value={timeRange} onValueChange={(value: TimeRange) => setTimeRange(value)}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Select time range" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1week">1 Week</SelectItem>
+            <SelectItem value="1month">1 Month</SelectItem>
+            <SelectItem value="3month">3 Months</SelectItem>
+            <SelectItem value="1year">1 Year</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      {/* Chart 2: Investment vs Current Value */}
-      <Card className={chartStyle}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Portfolio Value Over Time
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={{ investment: { label: "Investment" }, currentValue: { label: "Current Value" } }}>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={portfolioData}>
-                <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={formatCurrency} />
-                <ChartTooltip
-                  content={<ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number), name]} />}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="investment"
-                  stroke="var(--color-investment, #8884d8)"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 6 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="currentValue"
-                  stroke="var(--color-currentValue, #82ca9d)"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col lg:flex-row gap-4">
+        {/* Chart 1: Gold Price Over Time */}
+        <Card className={chartStyle}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Gold Price Over Time
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={{ price: { label: "Gold Price (₹/gram)", color: "hsl(var(--chart-1))" } }}>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={filteredGoldPrices}>
+                  <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={formatCurrency} />
+                  <ChartTooltip
+                    content={<ChartTooltipContent formatter={(value) => [formatCurrency(value as number), "Gold Price"]} />}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="price"
+                    stroke="var(--color-price)"
+                    strokeWidth={2}
+                    dot={{ fill: "var(--color-price)", strokeWidth: 2, r: 3 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        {/* Chart 2: Investment vs Current Value */}
+        <Card className={chartStyle}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Portfolio Value Over Time
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={{ investment: { label: "Investment" }, currentValue: { label: "Current Value" } }}>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={filteredPortfolioData}>
+                  <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={formatCurrency} />
+                  <ChartTooltip
+                    content={<ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number), name]} />}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="investment"
+                    stroke="var(--color-investment, #8884d8)"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 6 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="currentValue"
+                    stroke="var(--color-currentValue, #82ca9d)"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 });

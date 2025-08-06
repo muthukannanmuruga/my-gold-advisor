@@ -77,6 +77,39 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_metrics: {
+        Row: {
+          created_at: string
+          current_value: number
+          date: string
+          id: string
+          investment: number
+          total_weight_grams: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number
+          date: string
+          id?: string
+          investment?: number
+          total_weight_grams?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: number
+          date?: string
+          id?: string
+          investment?: number
+          total_weight_grams?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

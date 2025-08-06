@@ -4,7 +4,8 @@ import { AddPurchaseForm } from "@/components/AddPurchaseForm";
 import { PurchasesList } from "@/components/PurchasesList";
 import { PortfolioSummary } from "@/components/PortfolioSummary";
 import { GoldPriceWidget } from "@/components/GoldPriceWidget";
-import { DualGoldCharts} from "@/components/GoldPriceChart";
+import { DualGoldCharts } from "@/components/GoldPriceChart";
+import { PortfolioMetricsUpdater } from "@/components/PortfolioMetricsUpdater";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut, TrendingUp } from "lucide-react";
@@ -66,6 +67,7 @@ const Index = () => {
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8 space-y-8">
+          <PortfolioMetricsUpdater refreshTrigger={refreshTrigger} />
           <GoldPriceWidget onPriceUpdate={setCurrentGoldPrice} />
           <PortfolioSummary refreshTrigger={refreshTrigger} currentGoldPrice={currentGoldPrice} />
           <DualGoldCharts refreshTrigger={refreshTrigger} />
