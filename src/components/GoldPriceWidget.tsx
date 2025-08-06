@@ -8,7 +8,7 @@ import {
 } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { RefreshCw, TrendingUp } from "lucide-react";
+import { RefreshCw, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useToast } from "./ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -43,6 +43,7 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
   const [priceData, setPriceData] = useState<GoldPriceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [purity, setPurity] = useState<Purity>(22);
+  const [previousPrice, setPreviousPrice] = useState<number | null>(null);
   const { toast } = useToast();
 
   const resolveBasePrice = (data: GoldPriceData, purity: Purity) => {
@@ -69,7 +70,6 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
 
       const json: GoldApiResponse = await resp.json();
 
-      // Calculate prices
       let price24K = json.price_gram_24k ?? 
                     (json.price ? json.price / 31.1035 : null);
       let price22K = json.price_gram_22k ?? 
@@ -86,20 +86,26 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
         source: "GoldAPI INR endpoint",
       };
 
-      setPriceData(data);
-      
-      // Store price in history table with both 24K and 22K prices
-      try {
-        await supabase.from("gold_price_history").insert({
-          price_inr_per_gram: data.priceInrPerGram24K,
-          price_inr_per_gram_22k: data.priceInrPerGram22K,
-          source: data.source
-        });
-      } catch (historyError) {
-        console.error("Error storing price history:", historyError);
+      // Get previous day price from Supabase
+      const { data: prevData } = await supabase
+        .from("gold_price_history")
+        .select("price_inr_per_gram")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .neq("price_inr_per_gram", data.priceInrPerGram24K);
+
+      if (prevData && prevData.length > 0) {
+        setPreviousPrice(prevData[0].price_inr_per_gram);
       }
-      
-      // Always send 24K price to parent for portfolio calculations
+
+      setPriceData(data);
+
+      await supabase.from("gold_price_history").insert({
+        price_inr_per_gram: data.priceInrPerGram24K,
+        price_inr_per_gram_22k: data.priceInrPerGram22K,
+        source: data.source
+      });
+
       onPriceUpdate(computeBreakdown(data.priceInrPerGram24K).total);
 
     } catch (err: any) {
@@ -133,6 +139,17 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
 
   const displayPrice = priceData ? resolveBasePrice(priceData, purity) : null;
   const breakdown = displayPrice ? computeBreakdown(displayPrice) : null;
+
+  const priceChange = previousPrice && priceData
+    ? priceData.priceInrPerGram24K - previousPrice
+    : null;
+
+  const priceChangePercent = previousPrice && priceData
+    ? (priceChange! / previousPrice) * 100
+    : null;
+
+  const priceUp = priceChange !== null && priceChange > 0;
+  const priceDown = priceChange !== null && priceChange < 0;
 
   return (
     <Card>
@@ -170,15 +187,9 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
         </CardTitle>
         <CardDescription className="flex flex-col sm:flex-row gap-1 sm:justify-between">
           <div>
-            Live market rates • Last updated:{" "}
-            {priceData ? (
-              new Date(priceData.lastUpdated).toLocaleTimeString('en-US', {
-                hour: 'numeric',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: true
-              })
-            ) : "Loading..."}
+            Live market rates • Last updated: {priceData ? new Date(priceData.lastUpdated).toLocaleTimeString('en-US', {
+              hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true
+            }) : "Loading..."}
           </div>
           <Badge variant={priceData?.source === "fallback" ? "secondary" : "default"}>
             {priceData?.source === "fallback" ? "Estimated" : "Live"}
@@ -193,16 +204,22 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
           </div>
         ) : breakdown && (
           <div className="space-y-4">
-            <div>
-              <div className="text-3xl font-bold text-yellow-600">
+            <div className="flex items-center gap-2">
+              <div className={`text-3xl font-bold ${priceUp ? "text-green-600" : priceDown ? "text-red-600" : "text-yellow-600"}`}>
                 ₹{breakdown.total.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </div>
-              <div className="text-sm text-muted-foreground">
-                per gram ({purity}K) including 6% import duty + 1.5% local charges
-              </div>
+              {priceChange !== null && (
+                <div className={`flex items-center text-sm font-medium ${priceUp ? "text-green-600" : "text-red-600"}`}>
+                  {priceUp ? <ArrowUpRight className="w-4 h-4 mr-1" /> : <ArrowDownRight className="w-4 h-4 mr-1" />}
+                  ₹{Math.abs(priceChange).toFixed(2)} ({Math.abs(priceChangePercent!).toFixed(2)}%)
+                </div>
+              )}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              per gram ({purity}K) including 6% import duty + 1.5% local charges
             </div>
 
             <div className="grid grid-cols-2 gap-4">
