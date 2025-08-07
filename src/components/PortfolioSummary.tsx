@@ -114,6 +114,7 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
 
         // ✅ Correct CAGR calculation
         let cagrValue = 0;
+        const minCagrDays = 30; // Minimum days to show CAGR
         try {
           const validDates = purchases.filter(p => p.purchase_date);
           if (validDates.length > 0) {
@@ -122,10 +123,13 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
             );
             const startDate = new Date(String(earliest.purchase_date));
             const endDate = new Date();
-            const diffYears = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+            const diffDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+            const diffYears = diffDays / 365.25;
 
-            if (diffYears > 0 && totalInvestment > 0 && currentValue > 0) {
+            if (diffYears > 0 && diffDays >= minCagrDays && totalInvestment > 0 && currentValue > 0) {
               cagrValue = (Math.pow(currentValue / totalInvestment, 1 / diffYears) - 1) * 100;
+            } else {
+              cagrValue = NaN; // Use NaN to indicate not available
             }
           }
         } catch (err) {
@@ -141,7 +145,7 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
           gainPercentage: totalInvestment > 0 ? (totalGain / totalInvestment) * 100 : 0,
           averagePurchasePrice: totalWeight > 0 ? totalInvestment / totalWeight : 0,
           averagePurePurchasePrice: pureGoldWeight > 0 ? totalInvestment / pureGoldWeight : 0,
-          cagr: isFinite(cagrValue) ? cagrValue : 0,
+          cagr: isFinite(cagrValue) ? cagrValue : NaN,
           purchaseCount: purchases.length,
         };
       }
@@ -247,10 +251,10 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
     },
     {
       title: "CAGR (Annual Return)",
-      value: `${displayStats.cagr.toFixed(2)}%`,
+      value: isNaN(displayStats.cagr) ? "N/A" : `${displayStats.cagr.toFixed(2)}%`,
       icon: Percent,
       description: "Annualized return (lump sum)",
-      isGain: displayStats.cagr >= 0,
+      isGain: displayStats.cagr >= 0 && !isNaN(displayStats.cagr),
       shimmer: delayedLoading,
     },
     {
@@ -272,11 +276,13 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
             ) : (
               <card.icon
                 className={`h-4 w-4 ${
-                  card.isGain !== undefined
-                    ? card.isGain
-                      ? "text-green-500"
-                      : "text-red-500"
-                    : "text-muted-foreground"
+                  card.title === "CAGR (Annual Return)" && card.value === "N/A"
+                    ? "text-black"
+                    : card.isGain !== undefined
+                      ? card.isGain
+                        ? "text-green-500"
+                        : "text-red-500"
+                      : "text-muted-foreground"
                 }`}
               />
             )}
@@ -286,11 +292,13 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
               className={`text-2xl font-bold ${
                 card.shimmer ? "h-8 bg-muted rounded animate-pulse w-32" : ""
               } ${
-                card.isGain !== undefined
-                  ? card.isGain
-                    ? "text-green-500"
-                    : "text-red-500"
-                  : ""
+                card.title === "CAGR (Annual Return)" && card.value === "N/A"
+                  ? "text-black"
+                  : card.isGain !== undefined
+                    ? card.isGain
+                      ? "text-green-500"
+                      : "text-red-500"
+                    : ""
               }`}
             >
               {!card.shimmer && card.value}
@@ -302,7 +310,7 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
             >
               {!card.shimmer && card.description}
             </p>
-            {card.isGain !== undefined && !card.shimmer && (
+            {card.isGain !== undefined && !card.shimmer && card.value !== "N/A" && (
               <Badge
                 variant={card.isGain ? "default" : "destructive"}
                 className="mt-2"
