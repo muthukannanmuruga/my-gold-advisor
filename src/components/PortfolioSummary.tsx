@@ -106,13 +106,16 @@ const PortfolioSummary = memo(({
         );
 
         const pureGoldWeight = purchases.reduce((sum, p) => {
-          const purityFactor = (p.carat ?? 24) / 24;
-          return sum + (p.weight_grams || 0) * purityFactor;
+          const carat = (typeof p.carat === "string" ? parseInt(p.carat) : p.carat) ?? 24;
+          return sum + (p.weight_grams || 0) * (carat / 24);
         }, 0);
 
+        // --- REVERTED CURRENT VALUE LOGIC (no 7.5% premium, just purity adjustment) ---
         const currentValue = purchases.reduce((sum, p) => {
-          const purityFactor = (p.carat ?? 24) / 24;
-          return sum + (p.weight_grams || 0) * price24K * purityFactor;
+          const weight = p.weight_grams || 0;
+          const carat = (typeof p.carat === "string" ? parseInt(p.carat) : p.carat) ?? 24;
+          const purityFactor = carat / 24; // Supports all carats
+          return sum + weight * price24K * purityFactor;
         }, 0);
 
         const totalGain = currentValue - totalInvestment;

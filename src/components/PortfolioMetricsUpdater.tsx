@@ -13,7 +13,7 @@ export const PortfolioMetricsUpdater = ({ refreshTrigger }: PortfolioMetricsUpda
     if (!session?.user?.id) return;
 
     try {
-      // Get all user purchases
+      // Fetch purchases
       const { data: purchases, error: purchasesError } = await supabase
         .from("gold_purchases")
         .select("*")
@@ -22,7 +22,7 @@ export const PortfolioMetricsUpdater = ({ refreshTrigger }: PortfolioMetricsUpda
 
       if (purchasesError || !purchases?.length) return;
 
-      // Get gold price history
+      // Fetch gold price history
       const { data: priceHistory, error: priceError } = await supabase
         .from("gold_price_history")
         .select("*")
@@ -30,19 +30,16 @@ export const PortfolioMetricsUpdater = ({ refreshTrigger }: PortfolioMetricsUpda
 
       if (priceError || !priceHistory?.length) return;
 
-      // Calculate portfolio metrics for each day
       const metricsMap = new Map();
 
       purchases.forEach(purchase => {
         const purchaseDate = purchase.purchase_date;
-        
-        // Find all days from purchase date to today
         const startDate = new Date(purchaseDate);
         const endDate = new Date();
-        
+
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
           const dateKey = d.toISOString().split('T')[0];
-          
+
           if (!metricsMap.has(dateKey)) {
             metricsMap.set(dateKey, {
               date: dateKey,
@@ -51,7 +48,7 @@ export const PortfolioMetricsUpdater = ({ refreshTrigger }: PortfolioMetricsUpda
               purchases: []
             });
           }
-          
+
           const metrics = metricsMap.get(dateKey);
           metrics.investment += Number(purchase.total_amount);
           metrics.totalWeight += Number(purchase.weight_grams);
@@ -59,18 +56,31 @@ export const PortfolioMetricsUpdater = ({ refreshTrigger }: PortfolioMetricsUpda
         }
       });
 
-      // Calculate current value for each day using historical gold prices
       const portfolioMetrics = Array.from(metricsMap.entries()).map(([date, metrics]) => {
-        // Find the closest gold price for this date
-        const dayPrices = priceHistory.filter(p => 
+        const dayPrices = priceHistory.filter(p =>
           p.created_at.split('T')[0] <= date
         );
-        
-        const closestPrice = dayPrices.length > 0 
-          ? dayPrices[dayPrices.length - 1].price_inr_per_gram 
-          : 7200; // fallback price
 
-        const currentValue = metrics.totalWeight * closestPrice;
+        const latestPrice = dayPrices.length > 0 ? dayPrices[dayPrices.length - 1] : null;
+        let currentValue = 0;
+
+        if (latestPrice) {
+          const basePrice = Number(latestPrice.price_inr_per_gram);
+
+          metrics.purchases.forEach(purchase => {
+            let carat = purchase.carat;
+            if (typeof carat === "string") {
+              carat = parseInt(carat) || 24;
+            }
+            const weight = Number(purchase.weight_grams);
+            const purityFactor = carat / 24;
+            // Add 7.5% markup for current value in the chart
+            const pricePerGram = basePrice * 1.075 * purityFactor;
+            currentValue += weight * pricePerGram;
+          });
+        } else {
+          currentValue = metrics.totalWeight * 7200; // fallback
+        }
 
         return {
           user_id: session.user.id,
@@ -81,13 +91,12 @@ export const PortfolioMetricsUpdater = ({ refreshTrigger }: PortfolioMetricsUpda
         };
       });
 
-      // Upsert portfolio metrics
       for (const metric of portfolioMetrics) {
         await supabase
           .from("portfolio_metrics")
-          .upsert(metric, { 
+          .upsert(metric, {
             onConflict: "user_id,date",
-            ignoreDuplicates: false 
+            ignoreDuplicates: false
           });
       }
 
@@ -98,7 +107,8 @@ export const PortfolioMetricsUpdater = ({ refreshTrigger }: PortfolioMetricsUpda
 
   useEffect(() => {
     updatePortfolioMetrics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger, session?.user?.id]);
 
-  return null; // This is a background component
+  return null;
 };

@@ -17,8 +17,8 @@ import { TrendingUp } from "lucide-react";
 interface PriceDataPoint {
   date: string;
   displayDate: string;
-  price24k: number;
-  price22k: number;
+  realisticPrice24k: number;
+  realisticPrice22k: number;
   investment?: number;
   currentValue?: number;
 }
@@ -47,7 +47,7 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
   const getDateRangeFilter = (range: TimeRange) => {
     const now = new Date();
     const cutoffDate = new Date();
-    
+
     switch (range) {
       case "1week":
         cutoffDate.setDate(now.getDate() - 7);
@@ -62,13 +62,13 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
         cutoffDate.setFullYear(now.getFullYear() - 1);
         break;
     }
-    
-    return cutoffDate.toISOString().split('T')[0];
+
+    return cutoffDate.toISOString().split("T")[0];
   };
 
   const filterDataByTimeRange = (data: PriceDataPoint[], range: TimeRange) => {
     const cutoffDate = getDateRangeFilter(range);
-    return data.filter(item => item.date >= cutoffDate);
+    return data.filter((item) => item.date >= cutoffDate);
   };
 
   const fetchGoldPrices = async () => {
@@ -85,10 +85,14 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
       const dateKey = entry.created_at.split("T")[0];
       if (!uniqueMap.has(dateKey)) {
         const date = new Date(entry.created_at);
+        const price24k = Number(entry.price_inr_per_gram);
+        const price22k = Number(entry.price_inr_per_gram_22k || price24k * 22 / 24);
+
+        // Add 7.5% markup to both prices
         uniqueMap.set(dateKey, {
           date: dateKey,
-          price24k: Number(entry.price_inr_per_gram),
-          price22k: Number(entry.price_inr_per_gram_22k || (entry.price_inr_per_gram * 22 / 24)),
+          realisticPrice24k: Number((price24k * 1.075).toFixed(2)),
+          realisticPrice22k: Number((price22k * 1.075).toFixed(2)),
           displayDate: date.toLocaleDateString("en-IN", {
             day: "2-digit",
             month: "short",
@@ -136,14 +140,13 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
     fetchPortfolioData();
   }, [refreshTrigger]);
 
-  // Ensure filtered data is recalculated when dependencies change
-  const filteredGoldPrices = React.useMemo(() => 
-    filterDataByTimeRange(goldPrices, goldTimeRange), 
+  const filteredGoldPrices = React.useMemo(
+    () => filterDataByTimeRange(goldPrices, goldTimeRange),
     [goldPrices, goldTimeRange]
   );
-  
-  const filteredPortfolioData = React.useMemo(() => 
-    filterDataByTimeRange(portfolioData, portfolioTimeRange), 
+
+  const filteredPortfolioData = React.useMemo(
+    () => filterDataByTimeRange(portfolioData, portfolioTimeRange),
     [portfolioData, portfolioTimeRange]
   );
 
@@ -160,7 +163,6 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
                 <TrendingUp className="h-5 w-5" />
                 Gold Price Over Time
               </CardTitle>
-              {/* Time Range Selector for Gold Chart */}
               <Select value={goldTimeRange} onValueChange={(value: TimeRange) => setGoldTimeRange(value)}>
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="Range" />
@@ -175,21 +177,31 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
             </div>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={{ 
-              price24k: { label: "24K Gold Price (₹/gram)", color: "hsl(var(--chart-1))" },
-              price22k: { label: "22K Gold Price (₹/gram)", color: "hsl(var(--chart-2))" }
-            }}>
+            <ChartContainer
+              config={{
+                realisticPrice24k: { label: "24K Realistic Price (₹/gram)", color: "hsl(var(--chart-1))" },
+                realisticPrice22k: { label: "22K Realistic Price (₹/gram)", color: "hsl(var(--chart-2))" },
+              }}
+            >
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={filteredGoldPrices}>
                   <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
                   <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={formatCurrency} />
                   <ChartTooltip
-                    content={<ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number), name]} />}
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, name) => [
+                          formatCurrency(value as number),
+                          // Add a non-breaking space or extra space before the name
+                          `  ${name}` // Two non-breaking spaces before name
+                        ]}
+                      />
+                    }
                   />
                   <Legend />
                   <Line
                     type="monotone"
-                    dataKey="price24k"
+                    dataKey="realisticPrice24k"
                     stroke="var(--color-price24k, #8884d8)"
                     strokeWidth={2}
                     dot={{ r: 3 }}
@@ -198,7 +210,7 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
                   />
                   <Line
                     type="monotone"
-                    dataKey="price22k"
+                    dataKey="realisticPrice22k"
                     stroke="var(--color-price22k, #82ca9d)"
                     strokeWidth={2}
                     dot={{ r: 3 }}
@@ -211,7 +223,7 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
           </CardContent>
         </Card>
 
-        {/* Chart 2: Investment vs Current Value */}
+        {/* Chart 2: Portfolio Value Over Time */}
         <Card className={chartStyle}>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -219,7 +231,6 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
                 <TrendingUp className="h-5 w-5" />
                 Portfolio Value Over Time
               </CardTitle>
-              {/* Time Range Selector for Portfolio Chart */}
               <Select value={portfolioTimeRange} onValueChange={(value: TimeRange) => setPortfolioTimeRange(value)}>
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="Range" />
@@ -234,13 +245,26 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
             </div>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={{ investment: { label: "Investment" }, currentValue: { label: "Current Value" } }}>
+            <ChartContainer
+              config={{
+                investment: { label: "Investment" },
+                currentValue: { label: "Current Value" },
+              }}
+            >
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={filteredPortfolioData}>
                   <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
                   <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={formatCurrency} />
                   <ChartTooltip
-                    content={<ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number), name]} />}
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, name) => [
+                          formatCurrency(value as number),
+                          // Add a non-breaking space or extra space before the name
+                          `  ${name}` // Two non-breaking spaces before name
+                        ]}
+                      />
+                    }
                   />
                   <Legend />
                   <Line
