@@ -7,7 +7,12 @@ const corsHeaders = {
 };
 
 const GOLDAPI_URL = "https://www.goldapi.io/api/XAU/INR";
-const GOLDAPI_KEY = "goldapi-1424smdvlf2mb-io";
+const GOLDAPI_KEYS = [
+  "goldapi-1424smdvlf2mb-io",
+  "goldapi-3e0c1smdzgsi9r-io", 
+  "goldapi-3e0c1smdzgv381-io",
+  "goldapi-3e0c1smdzgwsdi-io"
+];
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -22,28 +27,49 @@ serve(async (req) => {
 
     console.log('Fetching daily gold price...');
 
-    // Fetch current gold price
-    const resp = await fetch(GOLDAPI_URL, {
-      headers: { 
-        "x-access-token": GOLDAPI_KEY, 
-        Accept: "application/json" 
-      },
-    });
+    let isApiSuccess = false;
+    let price24K: number | null = null;
+    let price22K: number | null = null;
 
-    if (!resp.ok) {
-      throw new Error(`GoldAPI HTTP ${resp.status}`);
+    // Try each API key in sequence
+    for (let i = 0; i < GOLDAPI_KEYS.length; i++) {
+      try {
+        console.log(`Trying API key ${i}...`);
+        
+        const resp = await fetch(GOLDAPI_URL, {
+          headers: { 
+            "x-access-token": GOLDAPI_KEYS[i], 
+            Accept: "application/json" 
+          },
+        });
+
+        if (!resp.ok) {
+          throw new Error(`GoldAPI HTTP ${resp.status}`);
+        }
+
+        const json = await resp.json();
+        
+        // Calculate both 24K and 22K price per gram
+        price24K = json.price_gram_24k ?? 
+                      (json.price ? json.price / 31.1035 : null);
+        price22K = json.price_gram_22k ?? 
+                      (price24K ? (22 / 24) * price24K : null);
+
+        if (price24K && price22K) {
+          console.log(`Successfully fetched prices with API key ${i}`);
+          isApiSuccess = true;
+          break;
+        }
+      } catch (error) {
+        console.warn(`API key ${i} failed:`, error.message);
+        if (i === GOLDAPI_KEYS.length - 1) {
+          console.error("All API keys exhausted");
+        }
+      }
     }
 
-    const json = await resp.json();
-    
-    // Calculate both 24K and 22K price per gram
-    let price24K = json.price_gram_24k ?? 
-                  (json.price ? json.price / 31.1035 : null);
-    let price22K = json.price_gram_22k ?? 
-                  (price24K ? (22 / 24) * price24K : null);
-
-    if (!price24K || !price22K) {
-      throw new Error("Unable to get gold prices");
+    if (!isApiSuccess || !price24K || !price22K) {
+      throw new Error("Unable to get gold prices from any API key");
     }
 
     // Check if we already have a price entry for today
