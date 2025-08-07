@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface GoldApiResponse {
   price_gram_24k?: number;
   price_gram_22k?: number;
-  price?: number; // INR per troy ounce
+  price?: number;
   lastUpdated?: string;
 }
 
@@ -36,52 +36,51 @@ type Purity = 24 | 22;
 const GOLDAPI_URL = "https://www.goldapi.io/api/XAU/INR";
 const GOLDAPI_KEYS = [
   "goldapi-1424smdvlf2mb-io",
-  "goldapi-3e0c1smdzgsi9r-io", 
+  "goldapi-3e0c1smdzgsi9r-io",
   "goldapi-3e0c1smdzgv381-io",
   "goldapi-3e0c1smdzgwsdi-io"
 ];
 
 const IMPORT_DUTY_RATE = 0.06;
 const LOCAL_CHARGES_RATE = 0.015;
+const KEY_INDEX_STORAGE_KEY = "goldapi_key_index";
 
 export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
   const [priceData, setPriceData] = useState<GoldPriceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [purity, setPurity] = useState<Purity>(22);
   const [previousPrice, setPreviousPrice] = useState<number | null>(null);
-  const [currentKeyIndex, setCurrentKeyIndex] = useState(0);
+  const [currentKeyIndex, setCurrentKeyIndex] = useState<number>(() => {
+    const savedIndex = localStorage.getItem(KEY_INDEX_STORAGE_KEY);
+    return savedIndex ? Number(savedIndex) : 0;
+  });
   const { toast } = useToast();
 
-  const resolveBasePrice = (data: GoldPriceData, purity: Purity) => {
-    return purity === 24 ? data.priceInrPerGram24K : data.priceInrPerGram22K;
-  };
+  const resolveBasePrice = (data: GoldPriceData, purity: Purity) =>
+    purity === 24 ? data.priceInrPerGram24K : data.priceInrPerGram22K;
 
-  const computeBreakdown = (base: number) => {
-    return {
-      base,
-      importDuty: base * IMPORT_DUTY_RATE,
-      localCharges: base * LOCAL_CHARGES_RATE,
-      total: base * (1 + IMPORT_DUTY_RATE + LOCAL_CHARGES_RATE),
-    };
-  };
+  const computeBreakdown = (base: number) => ({
+    base,
+    importDuty: base * IMPORT_DUTY_RATE,
+    localCharges: base * LOCAL_CHARGES_RATE,
+    total: base * (1 + IMPORT_DUTY_RATE + LOCAL_CHARGES_RATE),
+  });
 
   const tryApiKey = async (keyIndex: number): Promise<GoldPriceData> => {
     const resp = await fetch(GOLDAPI_URL, {
-      headers: { "x-access-token": GOLDAPI_KEYS[keyIndex], Accept: "application/json" },
+      headers: {
+        "x-access-token": GOLDAPI_KEYS[keyIndex],
+        Accept: "application/json",
+      },
     });
 
     if (!resp.ok) throw new Error(`GoldAPI HTTP ${resp.status}`);
-
     const json: GoldApiResponse = await resp.json();
 
-    let price24K = json.price_gram_24k ?? 
-                  (json.price ? json.price / 31.1035 : null);
-    let price22K = json.price_gram_22k ?? 
-                  (price24K ? (22 / 24) * price24K : null);
+    let price24K = json.price_gram_24k ?? (json.price ? json.price / 31.1035 : null);
+    let price22K = json.price_gram_22k ?? (price24K ? (22 / 24) * price24K : null);
 
-    if (!price24K || !price22K) {
-      throw new Error("Incomplete gold price data from API");
-    }
+    if (!price24K || !price22K) throw new Error("Incomplete gold price data");
 
     return {
       priceInrPerGram24K: Number(price24K.toFixed(2)),
@@ -93,28 +92,23 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
 
   const fetchGoldPrice = async () => {
     setLoading(true);
-    let isApiSuccess = false;
     let data: GoldPriceData | null = null;
-    
-    // Try each API key starting from current index
+    let isApiSuccess = false;
+
     for (let i = 0; i < GOLDAPI_KEYS.length; i++) {
       const keyIndex = (currentKeyIndex + i) % GOLDAPI_KEYS.length;
       try {
         data = await tryApiKey(keyIndex);
-        setCurrentKeyIndex(keyIndex); // Remember successful key
+        setCurrentKeyIndex(keyIndex);
+        localStorage.setItem(KEY_INDEX_STORAGE_KEY, String(keyIndex));
         isApiSuccess = true;
         break;
       } catch (err: any) {
         console.warn(`API key ${keyIndex} failed:`, err.message);
-        if (i === GOLDAPI_KEYS.length - 1) {
-          // All keys failed
-          console.error("All API keys exhausted");
-        }
       }
     }
 
     if (isApiSuccess && data) {
-      // Get previous day price from Supabase
       const { data: prevData } = await supabase
         .from("gold_price_history")
         .select("price_inr_per_gram")
@@ -128,19 +122,17 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
 
       setPriceData(data);
 
-      // Only insert real API data into database
       await supabase.from("gold_price_history").insert({
         price_inr_per_gram: data.priceInrPerGram24K,
         price_inr_per_gram_22k: data.priceInrPerGram22K,
-        source: data.source
+        source: data.source,
       });
 
       onPriceUpdate(computeBreakdown(data.priceInrPerGram24K).total);
     } else {
-      // Use fallback but DON'T store in database
       toast({
         title: "Error",
-        description: "All API keys exhausted, using fallback price",
+        description: "All API keys failed. Using fallback price.",
         variant: "destructive",
       });
 
@@ -152,16 +144,17 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
         source: "fallback",
         error: "All API keys exhausted",
       };
+
       setPriceData(fallbackData);
       onPriceUpdate(computeBreakdown(fallback24K).total);
     }
-    
+
     setLoading(false);
   };
 
   useEffect(() => {
     fetchGoldPrice();
-    const interval = setInterval(fetchGoldPrice, 12 * 60 * 60 * 1000);
+    const interval = setInterval(fetchGoldPrice, 12 * 60 * 60 * 1000); // every 12 hours
     return () => clearInterval(interval);
   }, []);
 
@@ -189,24 +182,18 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
           </div>
           <div className="flex items-center gap-2">
             <div className="flex rounded-md overflow-hidden border bg-surface">
-              <button
-                className={`px-2 py-1 text-xs font-medium ${
-                  purity === 24 ? "bg-primary text-white" : "bg-transparent text-muted-foreground"
-                }`}
-                onClick={() => setPurity(24)}
-                disabled={loading}
-              >
-                24K
-              </button>
-              <button
-                className={`px-2 py-1 text-xs font-medium ${
-                  purity === 22 ? "bg-primary text-white" : "bg-transparent text-muted-foreground"
-                }`}
-                onClick={() => setPurity(22)}
-                disabled={loading}
-              >
-                22K
-              </button>
+              {[24, 22].map((k) => (
+                <button
+                  key={k}
+                  className={`px-2 py-1 text-xs font-medium ${
+                    purity === k ? "bg-primary text-white" : "bg-transparent text-muted-foreground"
+                  }`}
+                  onClick={() => setPurity(k as Purity)}
+                  disabled={loading}
+                >
+                  {k}K
+                </button>
+              ))}
             </div>
             <Button variant="ghost" size="sm" onClick={fetchGoldPrice} disabled={loading}>
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
