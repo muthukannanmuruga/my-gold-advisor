@@ -1,3 +1,4 @@
+// Imports remain unchanged
 import { useEffect, useState, useRef, useCallback, memo } from "react";
 import { flushSync } from "react-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { TrendingUp, TrendingDown, Weight, Percent } from "lucide-react";
 
+// ✅ Renamed xirr → cagr
 interface PortfolioStats {
   totalWeight: number;
   totalInvestment: number;
@@ -13,19 +15,16 @@ interface PortfolioStats {
   gainPercentage: number;
   averagePurchasePrice: number;
   averagePurePurchasePrice: number;
-  xirr: number;
+  cagr: number; // ✅ Correctly named
   purchaseCount: number;
 }
 
 interface PortfolioSummaryProps {
   refreshTrigger: number;
-  currentGoldPrice: number; // 24K price
+  currentGoldPrice: number;
 }
 
-const PortfolioSummary = memo(({
-  refreshTrigger,
-  currentGoldPrice,
-}: PortfolioSummaryProps) => {
+const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSummaryProps) => {
   const [stats, setStats] = useState<PortfolioStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [delayedLoading, setDelayedLoading] = useState(true);
@@ -33,7 +32,6 @@ const PortfolioSummary = memo(({
   const prevStats = useRef<PortfolioStats | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Formatters (stable)
   const inrFormatter = useRef(
     new Intl.NumberFormat("en-IN", {
       style: "currency",
@@ -78,11 +76,12 @@ const PortfolioSummary = memo(({
     try {
       const { data: purchases, error } = await supabase
         .from("gold_purchases")
-        .select("*");
+        .select("*, purchase_date");
 
       if (error) throw error;
 
       let newStats: PortfolioStats;
+
       if (!purchases?.length) {
         newStats = {
           totalWeight: 0,
@@ -92,60 +91,46 @@ const PortfolioSummary = memo(({
           gainPercentage: 0,
           averagePurchasePrice: 0,
           averagePurePurchasePrice: 0,
-          xirr: 0,
+          cagr: 0,
           purchaseCount: 0,
         };
       } else {
-        const totalWeight = purchases.reduce(
-          (sum, p) => sum + (p.weight_grams || 0),
-          0
-        );
-        const totalInvestment = purchases.reduce(
-          (sum, p) => sum + (p.total_amount || 0),
-          0
-        );
+        const totalWeight = purchases.reduce((sum, p) => sum + (p.weight_grams || 0), 0);
+        const totalInvestment = purchases.reduce((sum, p) => sum + (p.total_amount || 0), 0);
 
         const pureGoldWeight = purchases.reduce((sum, p) => {
           const carat = (typeof p.carat === "string" ? parseInt(p.carat) : p.carat) ?? 24;
           return sum + (p.weight_grams || 0) * (carat / 24);
         }, 0);
 
-        // --- REVERTED CURRENT VALUE LOGIC (no 7.5% premium, just purity adjustment) ---
         const currentValue = purchases.reduce((sum, p) => {
           const weight = p.weight_grams || 0;
           const carat = (typeof p.carat === "string" ? parseInt(p.carat) : p.carat) ?? 24;
-          const purityFactor = carat / 24; // Supports all carats
+          const purityFactor = carat / 24;
           return sum + weight * price24K * purityFactor;
         }, 0);
 
         const totalGain = currentValue - totalInvestment;
 
-        // XIRR Approximation
-        let xirrValue = 0;
+        // ✅ Correct CAGR calculation
+        let cagrValue = 0;
         try {
-          if (purchases.length > 0 && currentValue > 0) {
-            const oldestPurchase = purchases.reduce((oldest, p) =>
-              new Date(p.purchase_date) < new Date(oldest.purchase_date) ? p : oldest
+          const validDates = purchases.filter(p => p.purchase_date);
+          if (validDates.length > 0) {
+            const earliest = validDates.reduce((min, p) =>
+              new Date(p.purchase_date) < new Date(min.purchase_date) ? p : min
             );
+            const startDate = new Date(String(earliest.purchase_date));
+            const endDate = new Date();
+            const diffYears = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
 
-            const daysSinceFirst = Math.max(
-              1,
-              (new Date().getTime() -
-                new Date(oldestPurchase.purchase_date).getTime()) /
-                (1000 * 60 * 60 * 24)
-            );
-
-            const totalReturn = (currentValue - totalInvestment) / totalInvestment;
-            const yearsInvested = daysSinceFirst / 365.25;
-
-            if (yearsInvested > 0) {
-              xirrValue = (Math.pow(1 + totalReturn, 1 / yearsInvested) - 1) * 100;
-              if (!isFinite(xirrValue)) xirrValue = 0;
+            if (diffYears > 0 && totalInvestment > 0 && currentValue > 0) {
+              cagrValue = (Math.pow(currentValue / totalInvestment, 1 / diffYears) - 1) * 100;
             }
           }
-        } catch (error) {
-          console.log("XIRR calculation failed:", error);
-          xirrValue = 0;
+        } catch (err) {
+          console.error("CAGR calculation failed", err);
+          cagrValue = 0;
         }
 
         newStats = {
@@ -153,15 +138,10 @@ const PortfolioSummary = memo(({
           totalInvestment,
           currentValue,
           totalGain,
-          gainPercentage:
-            totalInvestment > 0
-              ? (totalGain / totalInvestment) * 100
-              : 0,
-          averagePurchasePrice:
-            totalWeight > 0 ? totalInvestment / totalWeight : 0,
-          averagePurePurchasePrice:
-            pureGoldWeight > 0 ? totalInvestment / pureGoldWeight : 0,
-          xirr: xirrValue,
+          gainPercentage: totalInvestment > 0 ? (totalGain / totalInvestment) * 100 : 0,
+          averagePurchasePrice: totalWeight > 0 ? totalInvestment / totalWeight : 0,
+          averagePurePurchasePrice: pureGoldWeight > 0 ? totalInvestment / pureGoldWeight : 0,
+          cagr: isFinite(cagrValue) ? cagrValue : 0,
           purchaseCount: purchases.length,
         };
       }
@@ -175,7 +155,7 @@ const PortfolioSummary = memo(({
         gainPercentage: parseFloat(newStats.gainPercentage.toFixed(2)),
         averagePurchasePrice: parseFloat(newStats.averagePurchasePrice.toFixed(4)),
         averagePurePurchasePrice: parseFloat(newStats.averagePurePurchasePrice.toFixed(4)),
-        xirr: parseFloat(newStats.xirr.toFixed(2)),
+        cagr: parseFloat(newStats.cagr.toFixed(2)),
         purchaseCount: newStats.purchaseCount,
       };
 
@@ -229,8 +209,7 @@ const PortfolioSummary = memo(({
 
   const avg = displayStats.averagePurchasePrice;
   const pure = displayStats.averagePurePurchasePrice;
-  const showPurityAdjusted =
-    avg > 0 && Math.abs(pure - avg) / avg > 0.0001;
+  const showPurityAdjusted = avg > 0 && Math.abs(pure - avg) / avg > 0.0001;
 
   const formattedAvg = numberFormatter2.format(avg);
   const formattedPure = numberFormatter2.format(pure);
@@ -267,11 +246,11 @@ const PortfolioSummary = memo(({
       shimmer: delayedLoading,
     },
     {
-      title: "XIRR (Annual Return)",
-      value: `${displayStats.xirr.toFixed(2)}%`,
+      title: "CAGR (Annual Return)",
+      value: `${displayStats.cagr.toFixed(2)}%`,
       icon: Percent,
-      description: "Annualized return rate",
-      isGain: displayStats.xirr >= 0,
+      description: "Annualized return (lump sum)",
+      isGain: displayStats.cagr >= 0,
       shimmer: delayedLoading,
     },
     {
