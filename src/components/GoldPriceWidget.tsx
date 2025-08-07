@@ -8,7 +8,7 @@ import {
 } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { RefreshCw, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { RefreshCw, Triangle, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useToast } from "./ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -34,7 +34,12 @@ interface GoldPriceWidgetProps {
 type Purity = 24 | 22;
 
 const GOLDAPI_URL = "https://www.goldapi.io/api/XAU/INR";
-const GOLDAPI_KEY = "goldapi-1424smdvlf2mb-io";
+const GOLDAPI_KEYS = [
+  "goldapi-1424smdvlf2mb-io",
+  "goldapi-3e0c1smdzgsi9r-io", 
+  "goldapi-3e0c1smdzgv381-io",
+  "goldapi-3e0c1smdzgwsdi-io"
+];
 
 const IMPORT_DUTY_RATE = 0.06;
 const LOCAL_CHARGES_RATE = 0.015;
@@ -44,6 +49,7 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
   const [loading, setLoading] = useState(true);
   const [purity, setPurity] = useState<Purity>(22);
   const [previousPrice, setPreviousPrice] = useState<number | null>(null);
+  const [currentKeyIndex, setCurrentKeyIndex] = useState(0);
   const { toast } = useToast();
 
   const resolveBasePrice = (data: GoldPriceData, purity: Purity) => {
@@ -59,33 +65,55 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
     };
   };
 
+  const tryApiKey = async (keyIndex: number): Promise<GoldPriceData> => {
+    const resp = await fetch(GOLDAPI_URL, {
+      headers: { "x-access-token": GOLDAPI_KEYS[keyIndex], Accept: "application/json" },
+    });
+
+    if (!resp.ok) throw new Error(`GoldAPI HTTP ${resp.status}`);
+
+    const json: GoldApiResponse = await resp.json();
+
+    let price24K = json.price_gram_24k ?? 
+                  (json.price ? json.price / 31.1035 : null);
+    let price22K = json.price_gram_22k ?? 
+                  (price24K ? (22 / 24) * price24K : null);
+
+    if (!price24K || !price22K) {
+      throw new Error("Incomplete gold price data from API");
+    }
+
+    return {
+      priceInrPerGram24K: Number(price24K.toFixed(2)),
+      priceInrPerGram22K: Number(price22K.toFixed(2)),
+      lastUpdated: new Date().toISOString(),
+      source: "GoldAPI INR endpoint",
+    };
+  };
+
   const fetchGoldPrice = async () => {
     setLoading(true);
-    try {
-      const resp = await fetch(GOLDAPI_URL, {
-        headers: { "x-access-token": GOLDAPI_KEY, Accept: "application/json" },
-      });
-
-      if (!resp.ok) throw new Error(`GoldAPI HTTP ${resp.status}`);
-
-      const json: GoldApiResponse = await resp.json();
-
-      let price24K = json.price_gram_24k ?? 
-                    (json.price ? json.price / 31.1035 : null);
-      let price22K = json.price_gram_22k ?? 
-                    (price24K ? (22 / 24) * price24K : null);
-
-      if (!price24K || !price22K) {
-        throw new Error("Incomplete gold price data from API");
+    let isApiSuccess = false;
+    let data: GoldPriceData | null = null;
+    
+    // Try each API key starting from current index
+    for (let i = 0; i < GOLDAPI_KEYS.length; i++) {
+      const keyIndex = (currentKeyIndex + i) % GOLDAPI_KEYS.length;
+      try {
+        data = await tryApiKey(keyIndex);
+        setCurrentKeyIndex(keyIndex); // Remember successful key
+        isApiSuccess = true;
+        break;
+      } catch (err: any) {
+        console.warn(`API key ${keyIndex} failed:`, err.message);
+        if (i === GOLDAPI_KEYS.length - 1) {
+          // All keys failed
+          console.error("All API keys exhausted");
+        }
       }
+    }
 
-      const data: GoldPriceData = {
-        priceInrPerGram24K: Number(price24K.toFixed(2)),
-        priceInrPerGram22K: Number(price22K.toFixed(2)),
-        lastUpdated: new Date().toISOString(),
-        source: "GoldAPI INR endpoint",
-      };
-
+    if (isApiSuccess && data) {
       // Get previous day price from Supabase
       const { data: prevData } = await supabase
         .from("gold_price_history")
@@ -100,6 +128,7 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
 
       setPriceData(data);
 
+      // Only insert real API data into database
       await supabase.from("gold_price_history").insert({
         price_inr_per_gram: data.priceInrPerGram24K,
         price_inr_per_gram_22k: data.priceInrPerGram22K,
@@ -107,12 +136,11 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
       });
 
       onPriceUpdate(computeBreakdown(data.priceInrPerGram24K).total);
-
-    } catch (err: any) {
-      console.error("Error fetching gold price:", err);
+    } else {
+      // Use fallback but DON'T store in database
       toast({
         title: "Error",
-        description: "Failed to fetch current gold price, using fallback",
+        description: "All API keys exhausted, using fallback price",
         variant: "destructive",
       });
 
@@ -122,13 +150,13 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
         priceInrPerGram22K: (22 / 24) * fallback24K,
         lastUpdated: new Date().toISOString(),
         source: "fallback",
-        error: err?.message || "API unavailable",
+        error: "All API keys exhausted",
       };
       setPriceData(fallbackData);
       onPriceUpdate(computeBreakdown(fallback24K).total);
-    } finally {
-      setLoading(false);
     }
+    
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -156,7 +184,7 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-yellow-500" />
+            <Triangle className="h-5 w-5 text-yellow-500" />
             Gold Price (INR / gram)
           </div>
           <div className="flex items-center gap-2">
