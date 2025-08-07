@@ -8,7 +8,7 @@ import {
 } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { RefreshCw, Triangle, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { RefreshCw, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useToast } from "./ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -184,7 +184,7 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Triangle className="h-5 w-5 text-yellow-500" />
+            <TrendingUp className="h-5 w-5 text-yellow-500" />
             Gold Price (INR / gram)
           </div>
           <div className="flex items-center gap-2">
