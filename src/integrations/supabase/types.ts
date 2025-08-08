@@ -139,7 +139,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_yesterday_last_price: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          price_inr_per_gram: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
