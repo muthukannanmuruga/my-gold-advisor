@@ -11,6 +11,8 @@ import { Button } from "./ui/button";
 import { RefreshCw, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useToast } from "./ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { toZonedTime } from "date-fns-tz";
+import { startOfDay, endOfDay, subDays } from "date-fns";
 
 interface GoldApiResponse {
   price_gram_24k?: number;
@@ -109,12 +111,24 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
     }
 
     if (isApiSuccess && data) {
+      // Get yesterday's date in IST timezone
+      const istTimeZone = "Asia/Kolkata";
+      const nowIST = toZonedTime(new Date(), istTimeZone);
+      const yesterdayIST = subDays(nowIST, 1);
+      const yesterdayStartIST = startOfDay(yesterdayIST);
+      const yesterdayEndIST = endOfDay(yesterdayIST);
+      
+      // Convert IST dates back to UTC for database query
+      const yesterdayStartUTC = new Date(yesterdayStartIST.getTime() - (5.5 * 60 * 60 * 1000));
+      const yesterdayEndUTC = new Date(yesterdayEndIST.getTime() - (5.5 * 60 * 60 * 1000));
+
       const { data: prevData } = await supabase
         .from("gold_price_history")
         .select("price_inr_per_gram")
+        .gte("created_at", yesterdayStartUTC.toISOString())
+        .lte("created_at", yesterdayEndUTC.toISOString())
         .order("created_at", { ascending: false })
-        .limit(1)
-        .neq("price_inr_per_gram", data.priceInrPerGram24K);
+        .limit(1);
 
       if (prevData && prevData.length > 0) {
         setPreviousPrice(prevData[0].price_inr_per_gram);
