@@ -115,7 +115,15 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
       const { data: prevData } = await supabase.rpc('get_yesterday_last_price');
 
       if (prevData && prevData.length > 0) {
-        setPreviousPrice(prevData[0].price_inr_per_gram);
+        const yesterdayPrice = prevData[0].price_inr_per_gram;
+        console.log('🕰️ Price Comparison Debug:');
+        console.log('Yesterday\'s last price (IST):', yesterdayPrice);
+        console.log('Today\'s current price:', data.priceInrPerGram24K);
+        console.log('Raw price difference:', data.priceInrPerGram24K - yesterdayPrice);
+        console.log('Percentage change:', ((data.priceInrPerGram24K - yesterdayPrice) / yesterdayPrice * 100).toFixed(2) + '%');
+        setPreviousPrice(yesterdayPrice);
+      } else {
+        console.log('⚠️ No previous price data found for comparison');
       }
 
       setPriceData(data);
