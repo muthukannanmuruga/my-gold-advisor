@@ -111,24 +111,8 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
     }
 
     if (isApiSuccess && data) {
-      // Get yesterday's date in IST timezone
-      const istTimeZone = "Asia/Kolkata";
-      const nowIST = toZonedTime(new Date(), istTimeZone);
-      const yesterdayIST = subDays(nowIST, 1);
-      const yesterdayStartIST = startOfDay(yesterdayIST);
-      const yesterdayEndIST = endOfDay(yesterdayIST);
-      
-      // Convert IST dates back to UTC for database query
-      const yesterdayStartUTC = new Date(yesterdayStartIST.getTime() - (5.5 * 60 * 60 * 1000));
-      const yesterdayEndUTC = new Date(yesterdayEndIST.getTime() - (5.5 * 60 * 60 * 1000));
-
-      const { data: prevData } = await supabase
-        .from("gold_price_history")
-        .select("price_inr_per_gram")
-        .gte("created_at", yesterdayStartUTC.toISOString())
-        .lte("created_at", yesterdayEndUTC.toISOString())
-        .order("created_at", { ascending: false })
-        .limit(1);
+      // Get yesterday's last record using raw SQL for IST timezone
+      const { data: prevData } = await supabase.rpc('get_yesterday_last_price');
 
       if (prevData && prevData.length > 0) {
         setPreviousPrice(prevData[0].price_inr_per_gram);
