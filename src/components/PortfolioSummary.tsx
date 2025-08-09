@@ -99,22 +99,16 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
   );
 
   useEffect(() => {
+    // Clear all cached stats on mount
+    localStorage.removeItem(STATS_CACHE_KEY);
     localStorage.removeItem("portfolioStats");
-    const persisted = localStorage.getItem(STATS_CACHE_KEY);
-    if (persisted) {
-      try {
-        const parsed = JSON.parse(persisted);
-        if (isValidStats(parsed)) {
-          prevStats.current = parsed as PortfolioStats;
-          setStats(parsed as PortfolioStats);
-        } else {
-          localStorage.removeItem(STATS_CACHE_KEY);
-        }
-      } catch {
-        localStorage.removeItem(STATS_CACHE_KEY);
-      }
-    }
     setIsLoading(false);
+
+    return () => {
+      // Clear cache when unmounting too
+      localStorage.removeItem(STATS_CACHE_KEY);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, []);
 
   const calculateStats = useCallback(
@@ -218,12 +212,13 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
           setIsLoading(false);
         });
 
+        // Cache the fresh data
         localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(roundedStats));
         prevStats.current = roundedStats;
 
         timeoutRef.current = setTimeout(() => {
           setDelayedLoading(false);
-        }, 2000);
+        }, 2200);
       } catch (err) {
         console.error("Error calculating stats:", err);
         setIsLoading(false);
@@ -386,24 +381,19 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
             : "";
 
         return (
-          // 1) Make the Card a column layout
           <Card key={index} className="h-[130px] flex flex-col">
-
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4 min-h-[40px]">
               <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
               {card.shimmer ? (
                 <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
               ) : (
-                // always render a 16x16 box to keep header height identical
                 <div className="h-4 w-4 flex items-center justify-center">
                   {card.icon ? <card.icon className={`h-4 w-4 ${iconColorClass}`} /> : <span className="h-4 w-4 opacity-0" />}
                 </div>
               )}
             </CardHeader>
 
-            {/* 2) Content uses a fixed template: value row + desc row */}
             <CardContent className="px-4 pb-0 pt-0 flex-1 flex flex-col">
-              {/* Value row — fixed height */}
               <div
                 className={
                   `text-2xl font-bold tabular-nums leading-none min-h-[32px] 
@@ -413,10 +403,8 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
                 {!card.shimmer && card.value}
               </div>
 
-              {/* Gap between value and desc so all cards match */}
               <div className="h-1" />
 
-              {/* Description row — fixed 2-line block */}
               <div
                 className={
                   `text-xs text-muted-foreground mt-0 min-h-[32px] overflow-hidden 
@@ -426,7 +414,6 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
                 {!card.shimmer && card.description}
               </div>
 
-              {/* (optional) badge sits below; won’t push value up */}
               {"isZero" in card && !card.shimmer && !(card as any).isZero && !SHOW_SIGNED_PNL && (
                 <Badge variant={(card as any).isGain ? "default" : "destructive"} className="mt-2 self-start">
                   {(card as any).isGain ? "Profit" : "Loss"}
@@ -434,11 +421,12 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
               )}
             </CardContent>
           </Card>
-
         );
       })}
     </div>
   );
 });
+
+PortfolioSummary.displayName = "PortfolioSummary";
 
 export { PortfolioSummary };
