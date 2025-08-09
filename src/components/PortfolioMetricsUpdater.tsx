@@ -13,6 +13,12 @@ export const PortfolioMetricsUpdater = ({ refreshTrigger }: PortfolioMetricsUpda
     if (!session?.user?.id) return;
 
     try {
+      // First, delete all existing portfolio metrics for this user to ensure clean state
+      await supabase
+        .from("portfolio_metrics")
+        .delete()
+        .eq("user_id", session.user.id);
+
       // Fetch purchases
       const { data: purchases, error: purchasesError } = await supabase
         .from("gold_purchases")
@@ -20,7 +26,13 @@ export const PortfolioMetricsUpdater = ({ refreshTrigger }: PortfolioMetricsUpda
         .eq("user_id", session.user.id)
         .order("purchase_date", { ascending: true });
 
-      if (purchasesError || !purchases?.length) return;
+      if (purchasesError) {
+        console.error("Error fetching purchases:", purchasesError);
+        return;
+      }
+
+      // If no purchases, we're done (all metrics cleared)
+      if (!purchases?.length) return;
 
       // Fetch gold price history
       const { data: priceHistory, error: priceError } = await supabase

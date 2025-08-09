@@ -235,12 +235,14 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
       value: `${displayStats.totalWeight.toFixed(3)}g`,
       icon: Weight,
       description: "Gold in portfolio",
+      shimmer: false,
     },
     {
       title: "Total Investment",
       value: formatINR(displayStats.totalInvestment),
       icon: () => <span className="text-xl">₹</span>,
       description: investmentDescription,
+      shimmer: false,
     },
     {
       title: "Current Value",
@@ -274,6 +276,7 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
       value: `${displayStats.purchaseCount}`,
       icon: () => <span className="text-xl">#</span>,
       description: "Total number of gold entries",
+      shimmer: false,
     },
   ] as const;
 
