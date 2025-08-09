@@ -13,23 +13,20 @@ interface PortfolioStats {
   gainPercentage: number;
   averagePurchasePrice: number;
   averagePurePurchasePrice: number;
-  cagr: number; // % (could be NaN)
+  cagr: number;
   purchaseCount: number;
 }
 
 interface PortfolioSummaryProps {
   refreshTrigger: number;
-  /** MUST be 24K price PER GRAM (not 22k / not per-10g) */
   currentGoldPrice: number;
 }
 
-// ---------- CONFIG ----------
-const ZERO_TOLERANCE = 0.005; // ~ half paisa tolerance
-const STATS_CACHE_KEY = "portfolioStats:v2"; // bump when logic changes
-const SHOW_SIGNED_PNL = true; // set to false to show absolute PnL + Profit/Loss badge
-const MIN_SANE_PRICE_24K_PER_G = 1000; // guard wrong basis (e.g., per-10g)
+const ZERO_TOLERANCE = 0.005;
+const STATS_CACHE_KEY = "portfolioStats:v2";
+const SHOW_SIGNED_PNL = true;
+const MIN_SANE_PRICE_24K_PER_G = 1000;
 
-// ---------- HELPERS ----------
 function isFiniteNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
 }
@@ -50,7 +47,6 @@ function isValidStats(s: any): s is PortfolioStats {
   for (const k of keys) {
     if (!(k in s)) return false;
   }
-  // Basic numeric checks
   if (
     !isFiniteNumber(s.totalWeight) ||
     !isFiniteNumber(s.totalInvestment) ||
@@ -59,17 +55,14 @@ function isValidStats(s: any): s is PortfolioStats {
     !isFiniteNumber(s.gainPercentage) ||
     !isFiniteNumber(s.averagePurchasePrice) ||
     !isFiniteNumber(s.averagePurePurchasePrice) ||
-    // cagr can be NaN (allowed)
     typeof s.cagr !== "number" ||
     !isFiniteNumber(s.purchaseCount)
   ) {
     return false;
   }
-  // Sanity: totalGain ≈ currentValue - totalInvestment (within a tiny epsilon)
   if (Math.abs((s.currentValue - s.totalInvestment) - s.totalGain) > 0.05) {
     return false;
   }
-  // Non-negative essentials
   if (s.totalWeight < 0 || s.totalInvestment < 0 || s.currentValue < 0) {
     return false;
   }
@@ -105,11 +98,8 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
     [inrFormatter]
   );
 
-  // -------- Read validated cache on mount --------
   useEffect(() => {
-    // 🔹 One-time cleanup: remove legacy/stale key so it can never be read again
     localStorage.removeItem("portfolioStats");
-
     const persisted = localStorage.getItem(STATS_CACHE_KEY);
     if (persisted) {
       try {
@@ -118,13 +108,9 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
           prevStats.current = parsed as PortfolioStats;
           setStats(parsed as PortfolioStats);
         } else {
-          prevStats.current = null;
-          setStats(null);
           localStorage.removeItem(STATS_CACHE_KEY);
         }
       } catch {
-        prevStats.current = null;
-        setStats(null);
         localStorage.removeItem(STATS_CACHE_KEY);
       }
     }
@@ -178,7 +164,6 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
 
           const totalGain = currentValue - totalInvestment;
 
-          // CAGR calculation (lump-sum approximation)
           let cagrValue = NaN;
           const minCagrDays = 30;
           try {
@@ -213,7 +198,6 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
           };
         }
 
-        // ✅ Safe rounding – only toFixed when finite
         const safeRound = (val: number, digits: number) => (Number.isFinite(val) ? Number(val.toFixed(digits)) : val);
 
         const roundedStats: PortfolioStats = {
@@ -234,11 +218,9 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
           setIsLoading(false);
         });
 
-        // persist
         localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(roundedStats));
         prevStats.current = roundedStats;
 
-        // keep shimmer for a bit (prevents pop-in)
         timeoutRef.current = setTimeout(() => {
           setDelayedLoading(false);
         }, 2000);
@@ -253,14 +235,11 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
     []
   );
 
-  // -------- Trigger recompute when price/refresh changes --------
   useEffect(() => {
-    // Guard obvious wrong basis (e.g., per-10g ~ ₹60k, or 22k ~ ₹8k)
     if (currentGoldPrice > MIN_SANE_PRICE_24K_PER_G) {
       calculateStats(currentGoldPrice);
     } else {
-      // If price looks wrong, avoid recomputing with it (prevents bad cache)
-      console.warn("Ignored suspicious currentGoldPrice (expect 24k per gram):", currentGoldPrice);
+      console.warn("Ignored suspicious currentGoldPrice:", currentGoldPrice);
       setDelayedLoading(false);
     }
     return () => {
@@ -268,17 +247,15 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
     };
   }, [refreshTrigger, currentGoldPrice, calculateStats]);
 
-  // -------- Avoid flashing stale cache while recomputing --------
   const displayStats: PortfolioStats | null =
     !isLoading ? (stats ?? prevStats.current ?? null) : null;
 
   if (!displayStats) {
-    // Skeletons while computing (or no valid cache)
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-6">
+          <Card key={i} className="h-[148px]">
+            <CardContent className="p-4">
               <div className="animate-pulse space-y-2">
                 <div className="h-4 bg-muted rounded w-24"></div>
                 <div className="h-8 bg-muted rounded w-32"></div>
@@ -298,14 +275,31 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
   const formattedAvg = isFiniteNumber(avg) ? numberFormatter2.format(avg) : "N/A";
   const formattedPure = isFiniteNumber(pure) ? numberFormatter2.format(pure) : "N/A";
 
-  const investmentDescription = showPurityAdjusted
-    ? `Avg: ₹${formattedAvg}/g · Purity-adjusted Avg: ₹${formattedPure}/g`
-    : `Avg: ₹${formattedAvg}/g`;
+  const investmentDescription = showPurityAdjusted ? (
+    <div className="flex flex-col">
+      <span>Avg: ₹{formattedAvg}/g</span>
+      <span>Pure: ₹{formattedPure}/g</span>
+    </div>
+  ) : (
+    `Avg: ₹${formattedAvg}/g`
+  );
 
   const rawGain = displayStats.totalGain;
   const isZeroGain = isFiniteNumber(rawGain) ? Math.abs(rawGain) < ZERO_TOLERANCE : true;
   const isGain = isFiniteNumber(rawGain) && rawGain > 0 && !isZeroGain;
   const isLoss = isFiniteNumber(rawGain) && rawGain < 0 && !isZeroGain;
+
+  const formatGainValue = (value: number) => {
+    if (!isFiniteNumber(value)) return "N/A";
+    const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+    return `${sign}${formatINR(Math.abs(value))}`;
+  };
+
+  const formatPercentage = (value: number) => {
+    if (!isFiniteNumber(value)) return "N/A";
+    const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+    return `${sign}${Math.abs(value).toFixed(2)}%`;
+  };
 
   const statCards = [
     {
@@ -332,38 +326,33 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
         ? formatINR(displayStats.currentValue)
         : "N/A",
       icon: () => <span className="text-xl">₹</span>,
-      description: `Using 24K rate: ₹${numberFormatter2.format(currentGoldPrice)}/g`,
+      description: `24K rate: ₹${numberFormatter2.format(currentGoldPrice)}/g`,
       shimmer: delayedLoading,
     },
     {
       title: "Total Gain/Loss",
-      value: isFiniteNumber(rawGain)
-        ? SHOW_SIGNED_PNL
-          ? formatINR(rawGain) // signed
-          : formatINR(Math.abs(rawGain)) // absolute
-        : "N/A",
+      value: formatGainValue(rawGain),
       icon: isZeroGain ? null : isGain ? TrendingUp : TrendingDown,
-      description: isFiniteNumber(displayStats.gainPercentage)
-        ? `${displayStats.gainPercentage.toFixed(2)}%`
-        : "N/A",
+      description: formatPercentage(displayStats.gainPercentage),
       isGain,
       isLoss,
       isZero: isZeroGain,
       shimmer: delayedLoading,
     },
     {
-      title: "CAGR (Annual Return)",
-      value: Number.isFinite(displayStats.cagr) ? `${displayStats.cagr.toFixed(2)}%` : "N/A",
+      title: "CAGR (Annual)",
+      value: Number.isFinite(displayStats.cagr) ? formatPercentage(displayStats.cagr) : "N/A",
       icon: Percent,
-      description: "Annualized return (lump sum)",
+      description: "Annualized return",
       isGain: Number.isFinite(displayStats.cagr) && displayStats.cagr >= 0,
+      isLoss: Number.isFinite(displayStats.cagr) && displayStats.cagr < 0,
       shimmer: delayedLoading,
     },
     {
       title: "Purchases",
       value: Number.isFinite(displayStats.purchaseCount) ? `${displayStats.purchaseCount}` : "N/A",
       icon: () => <span className="text-xl">#</span>,
-      description: "Total number of gold entries",
+      description: "Total gold entries",
       shimmer: false,
     },
   ] as const;
@@ -371,9 +360,11 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
       {statCards.map((card, index) => {
-        const isCagrCard = card.title === "CAGR (Annual Return)";
+        const isCagrCard = card.title === "CAGR (Annual)";
+        const isGainLossCard = card.title === "Total Gain/Loss";
+        
         const iconColorClass =
-          isCagrCard && card.value === "N/A"
+          (isCagrCard || isGainLossCard) && card.value === "N/A"
             ? "text-black"
             : "isZero" in card && (card as any).isZero
             ? "text-black"
@@ -384,7 +375,7 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
             : "text-muted-foreground";
 
         const valueColorClass =
-          isCagrCard && card.value === "N/A"
+          (isCagrCard || isGainLossCard) && card.value === "N/A"
             ? "text-black"
             : "isZero" in card && (card as any).isZero
             ? "text-black"
@@ -395,35 +386,37 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
             : "";
 
         return (
-          <Card key={index}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <Card key={index} className="h-[148px]">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4">
               <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
               {card.shimmer ? (
                 <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
               ) : card.icon ? (
-                // @ts-expect-error generic icon component
                 <card.icon className={`h-4 w-4 ${iconColorClass}`} />
               ) : (
                 <div className="h-4 w-4" />
               )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 pb-4">
               <div
                 className={`text-2xl font-bold ${
-                  card.shimmer ? "h-8 bg-muted rounded animate-pulse w-32" : ""
+                  card.shimmer ? "h-8 bg-muted rounded animate-pulse w-full" : ""
                 } ${valueColorClass}`}
               >
                 {!card.shimmer && card.value}
               </div>
-              <p
-                className={`text-xs text-muted-foreground ${
-                  card.shimmer ? "h-4 w-40 bg-muted rounded animate-pulse mt-2" : ""
+              <div
+                className={`text-xs text-muted-foreground mt-1 ${
+                  card.shimmer ? "h-8 bg-muted rounded animate-pulse w-full" : ""
                 }`}
               >
-                {!card.shimmer && (card as any).description}
-              </p>
+                {!card.shimmer && card.description}
+              </div>
               {"isZero" in card && !card.shimmer && !(card as any).isZero && !SHOW_SIGNED_PNL && (
-                <Badge variant={(card as any).isGain ? "default" : "destructive"} className="mt-2">
+                <Badge 
+                  variant={(card as any).isGain ? "default" : "destructive"} 
+                  className="mt-2"
+                >
                   {(card as any).isGain ? "Profit" : "Loss"}
                 </Badge>
               )}
