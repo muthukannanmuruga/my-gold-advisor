@@ -276,7 +276,7 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
   const formattedPure = isFiniteNumber(pure) ? numberFormatter2.format(pure) : "N/A";
 
   const investmentDescription = showPurityAdjusted ? (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-0">
       <span>Avg: ₹{formattedAvg}/g</span>
       <span>Pure: ₹{formattedPure}/g</span>
     </div>
@@ -386,42 +386,55 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
             : "";
 
         return (
-          <Card key={index} className="h-[148px]">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4">
+          // 1) Make the Card a column layout
+          <Card key={index} className="h-[130px] flex flex-col">
+
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4 min-h-[40px]">
               <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
               {card.shimmer ? (
                 <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
-              ) : card.icon ? (
-                <card.icon className={`h-4 w-4 ${iconColorClass}`} />
               ) : (
-                <div className="h-4 w-4" />
+                // always render a 16x16 box to keep header height identical
+                <div className="h-4 w-4 flex items-center justify-center">
+                  {card.icon ? <card.icon className={`h-4 w-4 ${iconColorClass}`} /> : <span className="h-4 w-4 opacity-0" />}
+                </div>
               )}
             </CardHeader>
-            <CardContent className="px-4 pb-4">
+
+            {/* 2) Content uses a fixed template: value row + desc row */}
+            <CardContent className="px-4 pb-0 pt-0 flex-1 flex flex-col">
+              {/* Value row — fixed height */}
               <div
-                className={`text-2xl font-bold ${
-                  card.shimmer ? "h-8 bg-muted rounded animate-pulse w-full" : ""
-                } ${valueColorClass}`}
+                className={
+                  `text-2xl font-bold tabular-nums leading-none min-h-[32px] 
+                  ${card.shimmer ? "bg-muted rounded animate-pulse w-full" : ""} ${valueColorClass}`
+                }
               >
                 {!card.shimmer && card.value}
               </div>
+
+              {/* Gap between value and desc so all cards match */}
+              <div className="h-1" />
+
+              {/* Description row — fixed 2-line block */}
               <div
-                className={`text-xs text-muted-foreground mt-1 ${
-                  card.shimmer ? "h-8 bg-muted rounded animate-pulse w-full" : ""
-                }`}
+                className={
+                  `text-xs text-muted-foreground mt-0 min-h-[32px] overflow-hidden 
+                  ${card.shimmer ? "bg-muted rounded animate-pulse w-full" : ""}`
+                }
               >
                 {!card.shimmer && card.description}
               </div>
+
+              {/* (optional) badge sits below; won’t push value up */}
               {"isZero" in card && !card.shimmer && !(card as any).isZero && !SHOW_SIGNED_PNL && (
-                <Badge 
-                  variant={(card as any).isGain ? "default" : "destructive"} 
-                  className="mt-2"
-                >
+                <Badge variant={(card as any).isGain ? "default" : "destructive"} className="mt-2 self-start">
                   {(card as any).isGain ? "Profit" : "Loss"}
                 </Badge>
               )}
             </CardContent>
           </Card>
+
         );
       })}
     </div>
