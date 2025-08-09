@@ -40,6 +40,7 @@ const GOLDAPI_KEYS = [
   "goldapi-3e0c1smdzgv381-io",
   "goldapi-3e0c1smdzgwsdi-io",
   "goldapi-bjf1f9sme3wjm5d-io",
+  "goldapi-bjf1f9sme42prdt-io"
 ];
 
 const IMPORT_DUTY_RATE = 0.06;
