@@ -14,17 +14,19 @@ export const PortfolioMetricsUpdater = ({ refreshTrigger, onMetricsUpdated }: Pr
     if (!session?.user?.id) return;
 
     try {
+      // Clear old metrics
       await supabase.from("portfolio_metrics").delete().eq("user_id", session.user.id);
 
+      // Get all purchases for this user
       const { data: purchases, error: purchasesError } = await supabase
         .from("gold_purchases")
         .select("*")
         .eq("user_id", session.user.id)
         .order("purchase_date", { ascending: true });
       if (purchasesError) return;
-
       if (!purchases?.length) return onMetricsUpdated?.();
 
+      // Get all price history
       const { data: priceHistory, error: priceError } = await supabase
         .from("gold_price_history")
         .select("*")
@@ -81,12 +83,11 @@ export const PortfolioMetricsUpdater = ({ refreshTrigger, onMetricsUpdated }: Pr
         };
       });
 
-      for (const metric of portfolioMetrics) {
-        await supabase.from("portfolio_metrics").upsert(metric, {
-          onConflict: "user_id,date",
-          ignoreDuplicates: false,
-        });
-      }
+      // ✅ Batch upsert in one call
+      await supabase.from("portfolio_metrics").upsert(portfolioMetrics, {
+        onConflict: "user_id,date",
+        ignoreDuplicates: false,
+      });
 
       onMetricsUpdated?.();
     } catch (err) {

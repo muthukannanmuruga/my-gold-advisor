@@ -17,11 +17,19 @@ interface PriceDataPoint {
 
 type TimeRange = "1week" | "1month" | "3month" | "1year";
 
+// 🔄 Simple Tailwind spinner component
+const Spinner = () => (
+  <div className="flex justify-center items-center h-[300px]">
+    <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent"></div>
+  </div>
+);
+
 const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => {
   const [goldPrices, setGoldPrices] = useState<PriceDataPoint[]>([]);
   const [portfolioData, setPortfolioData] = useState<PriceDataPoint[]>([]);
   const [goldTimeRange, setGoldTimeRange] = useState<TimeRange>("1month");
   const [portfolioTimeRange, setPortfolioTimeRange] = useState<TimeRange>("1month");
+  const [portfolioLoading, setPortfolioLoading] = useState(true);
 
   const formatCurrency = (value: number) => {
     if (!Number.isFinite(value)) return "N/A";
@@ -76,11 +84,15 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
   };
 
   const fetchPortfolioData = async () => {
+    setPortfolioLoading(true);
     const { data, error } = await supabase
       .from("portfolio_metrics")
       .select("*")
       .order("date", { ascending: true });
-    if (error || !data) return;
+    if (error || !data) {
+      setPortfolioLoading(false);
+      return;
+    }
 
     const uniqueMap = new Map();
     data.forEach((entry) => {
@@ -96,6 +108,7 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
       }
     });
     setPortfolioData(Array.from(uniqueMap.values()));
+    setPortfolioLoading(false);
   };
 
   useEffect(() => {
@@ -117,7 +130,7 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Chart 1 */}
+        {/* Gold Price Chart */}
         <Card className={chartStyle}>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -156,7 +169,7 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
           </CardContent>
         </Card>
 
-        {/* Chart 2 */}
+        {/* Portfolio Chart */}
         <Card className={chartStyle}>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -175,23 +188,27 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
             </div>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={{
-              investment: { label: "Investment" },
-              currentValue: { label: "Current Value" },
-            }}>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={filteredPortfolioData}>
-                  <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                  <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={formatCurrency} />
-                  <ChartTooltip content={
-                    <ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number), `  ${name}`]} />
-                  }/>
-                  <Legend />
-                  <Line type="monotone" dataKey="investment" stroke="#8884d8" strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="currentValue" stroke="#82ca9d" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartContainer>
+            {portfolioLoading ? (
+              <Spinner />
+            ) : (
+              <ChartContainer config={{
+                investment: { label: "Investment" },
+                currentValue: { label: "Current Value" },
+              }}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={filteredPortfolioData}>
+                    <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={formatCurrency} />
+                    <ChartTooltip content={
+                      <ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number), `  ${name}`]} />
+                    }/>
+                    <Legend />
+                    <Line type="monotone" dataKey="investment" stroke="#8884d8" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="currentValue" stroke="#82ca9d" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            )}
           </CardContent>
         </Card>
       </div>
