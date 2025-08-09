@@ -19,13 +19,16 @@ interface PortfolioStats {
 
 interface PortfolioSummaryProps {
   refreshTrigger: number;
-  currentGoldPrice: number;
+  currentGoldPrice: number; // MUST be 24K price per gram
 }
 
 const ZERO_TOLERANCE = 0.005;
 const STATS_CACHE_KEY = "portfolioStats:v2";
 const SHOW_SIGNED_PNL = true;
 const MIN_SANE_PRICE_24K_PER_G = 1000;
+
+// Debounce so a transient/old price doesn't render a wrong value
+const PRICE_DEBOUNCE_MS = 180;
 
 function isFiniteNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
@@ -73,6 +76,11 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
   const [stats, setStats] = useState<PortfolioStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [delayedLoading, setDelayedLoading] = useState(true);
+
+  // --- NEW: debounce + last-used price guards
+  const priceDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const lastUsedPriceRef = useRef<number | null>(null);
+
   const calculationLock = useRef(false);
   const prevStats = useRef<PortfolioStats | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -93,27 +101,23 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
     })
   ).current;
 
-  const formatINR = useCallback(
-    (value: number) => inrFormatter.format(value).replace(/\s?INR/, "₹"),
-    [inrFormatter]
-  );
+  const formatINR = (value: number) => inrFormatter.format(value).replace(/\s?INR/, "₹");
 
+  // On mount, clear any stale cache and keep loading=true until we have a stable price
   useEffect(() => {
-    // Clear all cached stats on mount
     localStorage.removeItem(STATS_CACHE_KEY);
     localStorage.removeItem("portfolioStats");
-    setIsLoading(false);
+    setIsLoading(true);
 
     return () => {
-      // Clear cache when unmounting too
-      localStorage.removeItem(STATS_CACHE_KEY);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (priceDebounceRef.current) clearTimeout(priceDebounceRef.current);
     };
   }, []);
 
   const calculateStats = useCallback(
     async (price24K: number) => {
-      if (price24K <= 0 || calculationLock.current) return;
+      if (price24K <= MIN_SANE_PRICE_24K_PER_G || calculationLock.current) return;
 
       calculationLock.current = true;
       setIsLoading(true);
@@ -212,10 +216,11 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
           setIsLoading(false);
         });
 
-        // Cache the fresh data
+        // Cache the fresh data (kept for session UX even though we don't read it yet)
         localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(roundedStats));
         prevStats.current = roundedStats;
 
+        // Smooth shimmer on the price-sensitive cards
         timeoutRef.current = setTimeout(() => {
           setDelayedLoading(false);
         }, 2200);
@@ -230,17 +235,32 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
     []
   );
 
+  // --- NEW: Only compute once the price is "stable" for a short window.
   useEffect(() => {
-    if (currentGoldPrice > MIN_SANE_PRICE_24K_PER_G) {
-      calculateStats(currentGoldPrice);
-    } else {
-      console.warn("Ignored suspicious currentGoldPrice:", currentGoldPrice);
-      setDelayedLoading(false);
+    if (priceDebounceRef.current) clearTimeout(priceDebounceRef.current);
+
+    if (!isFiniteNumber(currentGoldPrice) || currentGoldPrice <= MIN_SANE_PRICE_24K_PER_G) {
+      // No valid price yet -> keep skeleton, no compute
+      return;
     }
+
+    // Debounce: wait a moment in case a newer price is about to arrive
+    priceDebounceRef.current = setTimeout(() => {
+      const alreadyUsedSamePrice =
+        lastUsedPriceRef.current !== null &&
+        Math.abs((lastUsedPriceRef.current ?? 0) - currentGoldPrice) < 0.0001;
+
+      if (!alreadyUsedSamePrice) {
+        lastUsedPriceRef.current = currentGoldPrice;
+        calculateStats(currentGoldPrice);
+      }
+    }, PRICE_DEBOUNCE_MS);
+
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (priceDebounceRef.current) clearTimeout(priceDebounceRef.current);
     };
-  }, [refreshTrigger, currentGoldPrice, calculateStats]);
+    // Re-run when either the price or refresh trigger changes
+  }, [currentGoldPrice, refreshTrigger, calculateStats]);
 
   const displayStats: PortfolioStats | null =
     !isLoading ? (stats ?? prevStats.current ?? null) : null;
@@ -357,7 +377,7 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
       {statCards.map((card, index) => {
         const isCagrCard = card.title === "CAGR (Annual)";
         const isGainLossCard = card.title === "Total Gain/Loss";
-        
+
         const iconColorClass =
           (isCagrCard || isGainLossCard) && card.value === "N/A"
             ? "text-black"
