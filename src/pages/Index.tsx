@@ -10,14 +10,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut, TrendingUp } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { useSession } from "@/hooks/useSession"; // ✅ import the hook
+import { useSession } from "@/hooks/useSession";
 
 const Index = () => {
-  console.log('Index component rendering...');
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [currentGoldPrice, setCurrentGoldPrice] = useState(7200); // Default fallback
+  const [metricsRefresh, setMetricsRefresh] = useState(0);
+  const [chartRefresh, setChartRefresh] = useState(0);
+  const [currentGoldPrice, setCurrentGoldPrice] = useState(7200);
   const { toast } = useToast();
-  const { session } = useSession(); // ✅ get session
+  const { session } = useSession();
 
   const userEmail = session?.user?.email ?? "";
   const username = userEmail
@@ -27,8 +27,8 @@ const Index = () => {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 
-  const handlePurchaseAdded = () => setRefreshTrigger((prev) => prev + 1);
-  const handlePurchaseDeleted = () => setRefreshTrigger((prev) => prev + 1);
+  const handlePurchaseAdded = () => setMetricsRefresh(prev => prev + 1);
+  const handlePurchaseDeleted = () => setMetricsRefresh(prev => prev + 1);
 
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
@@ -67,12 +67,15 @@ const Index = () => {
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8 space-y-8">
-          <PortfolioMetricsUpdater refreshTrigger={refreshTrigger} />
+          <PortfolioMetricsUpdater
+            refreshTrigger={metricsRefresh}
+            onMetricsUpdated={() => setChartRefresh(prev => prev + 1)}
+          />
           <GoldPriceWidget onPriceUpdate={setCurrentGoldPrice} />
-          <PortfolioSummary refreshTrigger={refreshTrigger} currentGoldPrice={currentGoldPrice} />
-          <DualGoldCharts refreshTrigger={refreshTrigger} />
+          <PortfolioSummary refreshTrigger={chartRefresh} currentGoldPrice={currentGoldPrice} />
+          <DualGoldCharts refreshTrigger={chartRefresh} />
           <AddPurchaseForm onPurchaseAdded={handlePurchaseAdded} />
-          <PurchasesList refreshTrigger={refreshTrigger} onPurchaseDeleted={handlePurchaseDeleted} />
+          <PurchasesList refreshTrigger={chartRefresh} onPurchaseDeleted={handlePurchaseDeleted} />
         </main>
       </div>
     </AuthWrapper>
