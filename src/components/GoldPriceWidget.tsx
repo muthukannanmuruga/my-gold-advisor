@@ -11,8 +11,6 @@ import { Button } from "./ui/button";
 import { RefreshCw, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useToast } from "./ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { toZonedTime } from "date-fns-tz";
-import { startOfDay, endOfDay, subDays } from "date-fns";
 
 interface GoldApiResponse {
   price_gram_24k?: number;
@@ -111,19 +109,11 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
     }
 
     if (isApiSuccess && data) {
-      // Get yesterday's last record using raw SQL for IST timezone
       const { data: prevData } = await supabase.rpc('get_yesterday_last_price');
 
       if (prevData && prevData.length > 0) {
         const yesterdayPrice = prevData[0].price_inr_per_gram;
-        console.log('🕰️ Price Comparison Debug:');
-        console.log('Yesterday\'s last price (IST):', yesterdayPrice);
-        console.log('Today\'s current price:', data.priceInrPerGram24K);
-        console.log('Raw price difference:', data.priceInrPerGram24K - yesterdayPrice);
-        console.log('Percentage change:', ((data.priceInrPerGram24K - yesterdayPrice) / yesterdayPrice * 100).toFixed(2) + '%');
         setPreviousPrice(yesterdayPrice);
-      } else {
-        console.log('⚠️ No previous price data found for comparison');
       }
 
       setPriceData(data);
@@ -160,7 +150,7 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
 
   useEffect(() => {
     fetchGoldPrice();
-    const interval = setInterval(fetchGoldPrice, 12 * 60 * 60 * 1000); // every 12 hours
+    const interval = setInterval(fetchGoldPrice, 12 * 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -175,8 +165,21 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
     ? (priceChange! / previousPrice) * 100
     : null;
 
-  const priceUp = priceChange !== null && priceChange > 0;
-  const priceDown = priceChange !== null && priceChange < 0;
+  // New no-change detection
+  const isNoChange = priceChange !== null ? Math.abs(priceChange) < 0.005 : false;
+  const priceUp = priceChange !== null && priceChange > 0 && !isNoChange;
+  const priceDown = priceChange !== null && priceChange < 0 && !isNoChange;
+
+  const displayChange = priceChange !== null ? (isNoChange ? 0 : priceChange) : null;
+  const displayChangePercent = priceChangePercent !== null
+    ? (isNoChange ? 0 : priceChangePercent)
+    : null;
+
+  const mainPriceColorClass =
+    priceUp ? "text-green-600"
+    : priceDown ? "text-red-600"
+    : isNoChange ? "text-black"
+    : "text-yellow-600";
 
   return (
     <Card>
@@ -226,16 +229,23 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
         ) : breakdown && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <div className={`text-3xl font-bold ${priceUp ? "text-green-600" : priceDown ? "text-red-600" : "text-yellow-600"}`}>
+              <div className={`text-3xl font-bold ${mainPriceColorClass}`}>
                 ₹{breakdown.total.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </div>
               {priceChange !== null && (
-                <div className={`flex items-center text-sm font-medium ${priceUp ? "text-green-600" : "text-red-600"}`}>
-                  {priceUp ? <ArrowUpRight className="w-4 h-4 mr-1" /> : <ArrowDownRight className="w-4 h-4 mr-1" />}
-                  ₹{Math.abs(priceChange).toFixed(2)} ({Math.abs(priceChangePercent!).toFixed(2)}%)
+                <div
+                  className={`flex items-center text-sm font-medium ${
+                    priceUp ? "text-green-600"
+                    : priceDown ? "text-red-600"
+                    : "text-black"
+                  }`}
+                >
+                  {priceUp && <ArrowUpRight className="w-4 h-4 mr-1" />}
+                  {priceDown && <ArrowDownRight className="w-4 h-4 mr-1" />}
+                  ₹{Math.abs(displayChange!).toFixed(2)} ({Math.abs(displayChangePercent!).toFixed(2)}%)
                 </div>
               )}
             </div>

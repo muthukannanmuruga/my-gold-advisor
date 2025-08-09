@@ -24,6 +24,8 @@ interface PortfolioSummaryProps {
   currentGoldPrice: number;
 }
 
+const ZERO_TOLERANCE = 0.005; // ~ half paisa tolerance
+
 const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSummaryProps) => {
   const [stats, setStats] = useState<PortfolioStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -221,6 +223,12 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
     ? `Avg: ₹${formattedAvg}/g · Purity-adjusted Avg: ₹${formattedPure}/g`
     : `Avg: ₹${formattedAvg}/g`;
 
+  // --- Derive gain state with zero-tolerance ---
+  const rawGain = displayStats.totalGain;
+  const isZeroGain = Math.abs(rawGain) < ZERO_TOLERANCE;
+  const isGain = rawGain > 0 && !isZeroGain;
+  const isLoss = rawGain < 0 && !isZeroGain;
+
   const statCards = [
     {
       title: "Total Weight",
@@ -243,10 +251,14 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
     },
     {
       title: "Total Gain/Loss",
-      value: formatINR(Math.abs(displayStats.totalGain)),
-      icon: displayStats.totalGain >= 0 ? TrendingUp : TrendingDown,
+      value: formatINR(Math.abs(rawGain)),
+      // ⬇️ Hide icon when zero
+      icon: isZeroGain ? null : (isGain ? TrendingUp : TrendingDown),
       description: `${displayStats.gainPercentage.toFixed(2)}%`,
-      isGain: displayStats.totalGain >= 0,
+      // Flags for styling/badge logic
+      isGain,
+      isLoss,
+      isZero: isZeroGain,
       shimmer: delayedLoading,
     },
     {
@@ -263,64 +275,78 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
       icon: () => <span className="text-xl">#</span>,
       description: "Total number of gold entries",
     },
-  ];
+  ] as const;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-      {statCards.map((card, index) => (
-        <Card key={index}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-            {card.shimmer ? (
-              <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
-            ) : (
-              <card.icon
-                className={`h-4 w-4 ${
-                  card.title === "CAGR (Annual Return)" && card.value === "N/A"
-                    ? "text-black"
-                    : card.isGain !== undefined
-                      ? card.isGain
-                        ? "text-green-500"
-                        : "text-red-500"
-                      : "text-muted-foreground"
-                }`}
-              />
-            )}
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-2xl font-bold ${
-                card.shimmer ? "h-8 bg-muted rounded animate-pulse w-32" : ""
-              } ${
-                card.title === "CAGR (Annual Return)" && card.value === "N/A"
-                  ? "text-black"
-                  : card.isGain !== undefined
-                    ? card.isGain
-                      ? "text-green-500"
-                      : "text-red-500"
-                    : ""
-              }`}
-            >
-              {!card.shimmer && card.value}
-            </div>
-            <p
-              className={`text-xs text-muted-foreground ${
-                card.shimmer ? "h-4 w-40 bg-muted rounded animate-pulse mt-2" : ""
-              }`}
-            >
-              {!card.shimmer && card.description}
-            </p>
-            {card.isGain !== undefined && !card.shimmer && card.value !== "N/A" && (
-              <Badge
-                variant={card.isGain ? "default" : "destructive"}
-                className="mt-2"
+      {statCards.map((card, index) => {
+        const isCagrCard = card.title === "CAGR (Annual Return)";
+        const isGainLossCard = card.title === "Total Gain/Loss";
+
+        // Determine icon color
+        const iconColorClass = isCagrCard && card.value === "N/A"
+          ? "text-black"
+          : (("isZero" in card && card.isZero)
+              ? "text-black"
+              : ("isGain" in card
+                  ? (card.isGain ? "text-green-500" : "text-red-500")
+                  : "text-muted-foreground"));
+
+        // Determine value color
+        const valueColorClass = isCagrCard && card.value === "N/A"
+          ? "text-black"
+          : (("isZero" in card && card.isZero)
+              ? "text-black"
+              : ("isGain" in card
+                  ? (card.isGain ? "text-green-500" : "text-red-500")
+                  : ""));
+
+        return (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+              {card.shimmer ? (
+                <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
+              ) : (
+                // ⬇️ Only render icon when present (won't render for zero gain)
+                card.icon ? (
+                  <card.icon className={`h-4 w-4 ${iconColorClass}`} />
+                ) : (
+                  <div className="h-4 w-4" /> // keep layout aligned
+                )
+              )}
+            </CardHeader>
+            <CardContent>
+              <div
+                className={`text-2xl font-bold ${
+                  card.shimmer ? "h-8 bg-muted rounded animate-pulse w-32" : ""
+                } ${valueColorClass}`}
               >
-                {card.isGain ? "Profit" : "Loss"}
-              </Badge>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+                {!card.shimmer && card.value}
+              </div>
+              <p
+                className={`text-xs text-muted-foreground ${
+                  card.shimmer ? "h-4 w-40 bg-muted rounded animate-pulse mt-2" : ""
+                }`}
+              >
+                {!card.shimmer && card.description}
+              </p>
+
+              {/* ⬇️ Hide Profit/Loss badge when zero */}
+              {!("isZero" in card) ? null : (
+                !card.shimmer && !card.isZero && (
+                  <Badge
+                    variant={card.isGain ? "default" : "destructive"}
+                    className="mt-2"
+                  >
+                    {card.isGain ? "Profit" : "Loss"}
+                  </Badge>
+                )
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 });
