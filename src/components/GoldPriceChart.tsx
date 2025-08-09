@@ -85,14 +85,14 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
       const dateKey = entry.created_at.split("T")[0];
       if (!uniqueMap.has(dateKey)) {
         const date = new Date(entry.created_at);
-        const price24k = Number(entry.price_inr_per_gram);
-        const price22k = Number(entry.price_inr_per_gram_22k || price24k * 22 / 24);
+        const price24k = Number(entry.price_inr_per_gram) || 0;
+        const price22k = Number(entry.price_inr_per_gram_22k || price24k * 22 / 24) || 0;
 
         // Add 7.5% markup to both prices
         uniqueMap.set(dateKey, {
           date: dateKey,
-          realisticPrice24k: Number((price24k * 1.075).toFixed(2)),
-          realisticPrice22k: Number((price22k * 1.075).toFixed(2)),
+          realisticPrice24k: Number(((price24k || 0) * 1.075).toFixed(2)),
+          realisticPrice22k: Number(((price22k || 0) * 1.075).toFixed(2)),
           displayDate: date.toLocaleDateString("en-IN", {
             day: "2-digit",
             month: "short",
@@ -121,8 +121,8 @@ const DualGoldCharts = memo(({ refreshTrigger }: DualGoldChartsProps) => {
         const date = new Date(entry.date);
         uniqueMap.set(dateKey, {
           date: dateKey,
-          investment: Number(entry.investment),
-          currentValue: Number(entry.current_value),
+          investment: Number(entry.investment) || 0,
+          currentValue: Number(entry.current_value) || 0,
           displayDate: date.toLocaleDateString("en-IN", {
             day: "2-digit",
             month: "short",

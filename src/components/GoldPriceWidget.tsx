@@ -83,8 +83,8 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
     if (!price24K || !price22K) throw new Error("Incomplete gold price data");
 
     return {
-      priceInrPerGram24K: Number(price24K.toFixed(2)),
-      priceInrPerGram22K: Number(price22K.toFixed(2)),
+      priceInrPerGram24K: Number((price24K || 0).toFixed(2)),
+      priceInrPerGram22K: Number((price22K || 0).toFixed(2)),
       lastUpdated: new Date().toISOString(),
       source: "GoldAPI INR endpoint",
     };
@@ -112,8 +112,8 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
       const { data: prevData } = await supabase.rpc('get_yesterday_last_price');
 
       if (prevData && prevData.length > 0) {
-        const yesterdayPrice = prevData[0].price_inr_per_gram;
-        setPreviousPrice(yesterdayPrice);
+        const yesterdayPrice = Number(prevData[0].price_inr_per_gram);
+        setPreviousPrice(isNaN(yesterdayPrice) ? null : yesterdayPrice);
       }
 
       setPriceData(data);
@@ -245,7 +245,7 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
                 >
                   {priceUp && <ArrowUpRight className="w-4 h-4 mr-1" />}
                   {priceDown && <ArrowDownRight className="w-4 h-4 mr-1" />}
-                  ₹{Math.abs(displayChange!).toFixed(2)} ({Math.abs(displayChangePercent!).toFixed(2)}%)
+                  ₹{Math.abs(displayChange || 0).toFixed(2)} ({Math.abs(displayChangePercent || 0).toFixed(2)}%)
                 </div>
               )}
             </div>
