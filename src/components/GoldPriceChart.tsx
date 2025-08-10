@@ -31,28 +31,6 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
   const [portfolioTimeRange, setPortfolioTimeRange] = useState<TimeRange>("1month");
   const [portfolioLoading, setPortfolioLoading] = useState(true);
 
-  // --- Empty-state visuals
-  const EMPTY_DAYS = 10;            // how many recent dates to show when empty
-  const EMPTY_Y_MAX = 5000;         // Rs upper bound for empty-state Y axis
-  const emptyTicks = React.useMemo(
-    () => Array.from({ length: EMPTY_Y_MAX / 1000 + 1 }, (_, i) => i * 1000),
-    []
-  );
-
-  // Generate recent dates for empty-state X axis
-  const EMPTY_PORTFOLIO_POINTS = React.useMemo(() => {
-    const today = new Date();
-    return Array.from({ length: EMPTY_DAYS }).map((_, idx) => {
-      const d = new Date();
-      d.setDate(today.getDate() - (EMPTY_DAYS - 1 - idx));
-      return {
-        displayDate: d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
-        investment: 0,
-        currentValue: 0,
-      } as Pick<PriceDataPoint, "displayDate" | "investment" | "currentValue">;
-    });
-  }, []);
-
   const formatCurrency = (value: number) => {
     if (!Number.isFinite(value)) return "N/A";
     return new Intl.NumberFormat("en-IN", {
@@ -67,10 +45,10 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
     const now = new Date();
     const cutoffDate = new Date();
     switch (range) {
-      case "1week":  cutoffDate.setDate(now.getDate() - 7); break;
+      case "1week": cutoffDate.setDate(now.getDate() - 7); break;
       case "1month": cutoffDate.setMonth(now.getMonth() - 1); break;
       case "3month": cutoffDate.setMonth(now.getMonth() - 3); break;
-      case "1year":  cutoffDate.setFullYear(now.getFullYear() - 1); break;
+      case "1year": cutoffDate.setFullYear(now.getFullYear() - 1); break;
     }
     return cutoffDate.toISOString().split("T")[0];
   };
@@ -87,8 +65,8 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
       .order("created_at", { ascending: true });
     if (error || !data) return;
 
-    const uniqueMap = new Map<string, PriceDataPoint>();
-    data.forEach((entry: any) => {
+    const uniqueMap = new Map();
+    data.forEach((entry) => {
       const dateKey = entry.created_at.split("T")[0];
       if (!uniqueMap.has(dateKey)) {
         const date = new Date(entry.created_at);
@@ -111,15 +89,13 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
       .from("portfolio_metrics")
       .select("*")
       .order("date", { ascending: true });
-
     if (error || !data) {
-      setPortfolioData([]);
       setPortfolioLoading(false);
       return;
     }
 
-    const uniqueMap = new Map<string, PriceDataPoint>();
-    data.forEach((entry: any) => {
+    const uniqueMap = new Map();
+    data.forEach((entry) => {
       const dateKey = entry.date;
       if (!uniqueMap.has(dateKey)) {
         const date = new Date(entry.date);
@@ -131,7 +107,6 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
         });
       }
     });
-
     setPortfolioData(Array.from(uniqueMap.values()));
     setPortfolioLoading(false);
   };
@@ -145,13 +120,11 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
     () => filterDataByTimeRange(goldPrices, goldTimeRange),
     [goldPrices, goldTimeRange]
   );
-
   const filteredPortfolioData = React.useMemo(
     () => filterDataByTimeRange(portfolioData, portfolioTimeRange),
     [portfolioData, portfolioTimeRange]
   );
 
-  const hasPortfolioData = filteredPortfolioData.length > 0;
   const chartStyle = "w-full lg:w-1/2";
 
   return (
@@ -218,60 +191,23 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
             {portfolioLoading ? (
               <Spinner />
             ) : (
-              <div className="relative h-[300px]">
-                <ChartContainer config={{
-                  investment: { label: "Investment" },
-                  currentValue: { label: "Current Value" },
-                }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={hasPortfolioData ? filteredPortfolioData : (EMPTY_PORTFOLIO_POINTS as any[])}>
-                      <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                      <YAxis
-                        fontSize={12}
-                        tick={{ fill: "hsl(var(--muted-foreground))" }}
-                        tickFormatter={formatCurrency}
-                        allowDecimals={false}
-                        domain={hasPortfolioData ? [0, "auto"] : [0, EMPTY_Y_MAX]}
-                        ticks={hasPortfolioData ? undefined : emptyTicks}
-                      />
-                      <ChartTooltip content={
-                        <ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number), `  ${name}`]} />
-                      }/>
-                      {hasPortfolioData && <Legend />}
-                      <Line
-                        type="monotone"
-                        dataKey="investment"
-                        stroke="#8884d8"
-                        strokeOpacity={hasPortfolioData ? 1 : 0}
-                        strokeWidth={2}
-                        dot={hasPortfolioData ? { r: 3 } : false}
-                        isAnimationActive={hasPortfolioData}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="currentValue"
-                        stroke="#82ca9d"
-                        strokeOpacity={hasPortfolioData ? 1 : 0}
-                        strokeWidth={2}
-                        dot={hasPortfolioData ? { r: 3 } : false}
-                        isAnimationActive={hasPortfolioData}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-
-                {/* Centered, beautified empty-state message */}
-                {!hasPortfolioData && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="flex items-center gap-2 px-4 py-2 bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-lg shadow-sm">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12A9 9 0 113 12a9 9 0 0118 0z" />
-                      </svg>
-                      <span className="text-sm font-medium">No portfolio records yet</span>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ChartContainer config={{
+                investment: { label: "Investment" },
+                currentValue: { label: "Current Value" },
+              }}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={filteredPortfolioData}>
+                    <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={formatCurrency} />
+                    <ChartTooltip content={
+                      <ChartTooltipContent formatter={(value, name) => [formatCurrency(value as number), `  ${name}`]} />
+                    }/>
+                    <Legend />
+                    <Line type="monotone" dataKey="investment" stroke="#8884d8" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="currentValue" stroke="#82ca9d" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             )}
           </CardContent>
         </Card>
