@@ -134,7 +134,7 @@ export const PurchasesList = ({ refreshTrigger, onPurchaseDeleted }: PurchasesLi
         </CardHeader>
         <CardContent>
           {purchases.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
+            <p className="flex items-center justify-center h-[180px] text-gray-500 font-medium">
               No purchases recorded yet. Add your first gold purchase above!
             </p>
           ) : (
