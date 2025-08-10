@@ -24,6 +24,9 @@ const Spinner = () => (
   </div>
 );
 
+// Shared margins for chart + overlay so the message centers in the plotting area on all screens
+const CHART_MARGIN = { top: 8, right: 16, bottom: 28, left: 65 };
+
 const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => {
   const [goldPrices, setGoldPrices] = useState<PriceDataPoint[]>([]);
   const [portfolioData, setPortfolioData] = useState<PriceDataPoint[]>([]);
@@ -181,7 +184,7 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
               realisticPrice22k: { label: "22K Realistic Price (₹/gram)", color: "hsl(var(--chart-2))" },
             }}>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={filteredGoldPrices}>
+                <LineChart data={filteredGoldPrices} margin={CHART_MARGIN}>
                   <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
                   <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={formatCurrency} />
                   <ChartTooltip content={
@@ -224,7 +227,10 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
                   currentValue: { label: "Current Value" },
                 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={hasPortfolioData ? filteredPortfolioData : (EMPTY_PORTFOLIO_POINTS as any[])}>
+                    <LineChart
+                      data={hasPortfolioData ? filteredPortfolioData : (EMPTY_PORTFOLIO_POINTS as any[])}
+                      margin={CHART_MARGIN}
+                    >
                       <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
                       <YAxis
                         fontSize={12}
@@ -260,9 +266,17 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
                   </ResponsiveContainer>
                 </ChartContainer>
 
-                {/* Centered, beautified empty-state message */}
+                {/* Centered, beautified empty-state message (center of plotting area on all screens) */}
                 {!hasPortfolioData && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div
+                    className="absolute flex items-center justify-center pointer-events-none"
+                    style={{
+                      top: CHART_MARGIN.top,
+                      bottom: CHART_MARGIN.bottom,
+                      left: CHART_MARGIN.left,
+                      right: CHART_MARGIN.right,
+                    }}
+                  >
                     <div className="flex items-center gap-2 px-4 py-2 bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-lg shadow-sm">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12A9 9 0 113 12a9 9 0 0118 0z" />
