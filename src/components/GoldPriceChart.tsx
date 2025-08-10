@@ -17,20 +17,12 @@ interface PriceDataPoint {
 
 type TimeRange = "1week" | "1month" | "3month" | "1year";
 
-// Spinner
+// 🔄 Simple Tailwind spinner component
 const Spinner = () => (
   <div className="flex justify-center items-center h-[300px]">
-    <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent" />
+    <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent"></div>
   </div>
 );
-
-// Fixed axis sizes for consistent overlay centering (works across breakpoints)
-const AXIS = {
-  yWidth: 56,   // Y-axis reserved width (px)
-  xHeight: 28,  // X-axis reserved height (px)
-  top: 8,
-  right: 12,
-};
 
 const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => {
   const [goldPrices, setGoldPrices] = useState<PriceDataPoint[]>([]);
@@ -39,14 +31,15 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
   const [portfolioTimeRange, setPortfolioTimeRange] = useState<TimeRange>("1month");
   const [portfolioLoading, setPortfolioLoading] = useState(true);
 
-  // Empty-state visuals
-  const EMPTY_DAYS = 10;
-  const EMPTY_Y_MAX = 5000;
+  // --- Empty-state visuals
+  const EMPTY_DAYS = 10;            // how many recent dates to show when empty
+  const EMPTY_Y_MAX = 5000;         // Rs upper bound for empty-state Y axis
   const emptyTicks = React.useMemo(
     () => Array.from({ length: EMPTY_Y_MAX / 1000 + 1 }, (_, i) => i * 1000),
     []
   );
 
+  // Generate recent dates for empty-state X axis
   const EMPTY_PORTFOLIO_POINTS = React.useMemo(() => {
     const today = new Date();
     return Array.from({ length: EMPTY_DAYS }).map((_, idx) => {
@@ -74,10 +67,10 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
     const now = new Date();
     const cutoffDate = new Date();
     switch (range) {
-      case "1week": cutoffDate.setDate(now.getDate() - 7); break;
+      case "1week":  cutoffDate.setDate(now.getDate() - 7); break;
       case "1month": cutoffDate.setMonth(now.getMonth() - 1); break;
       case "3month": cutoffDate.setMonth(now.getMonth() - 3); break;
-      case "1year": cutoffDate.setFullYear(now.getFullYear() - 1); break;
+      case "1year":  cutoffDate.setFullYear(now.getFullYear() - 1); break;
     }
     return cutoffDate.toISOString().split("T")[0];
   };
@@ -152,6 +145,7 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
     () => filterDataByTimeRange(goldPrices, goldTimeRange),
     [goldPrices, goldTimeRange]
   );
+
   const filteredPortfolioData = React.useMemo(
     () => filterDataByTimeRange(portfolioData, portfolioTimeRange),
     [portfolioData, portfolioTimeRange]
@@ -159,17 +153,6 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
 
   const hasPortfolioData = filteredPortfolioData.length > 0;
   const chartStyle = "w-full lg:w-1/2";
-
-  // Margin for gold chart (it can keep auto axis sizes)
-  const GOLD_MARGIN = { top: 8, right: 16, bottom: 28, left: 8 };
-
-  // Consistent insets for portfolio plot area (overlay will use the same)
-  const PLOT_INSET = {
-    top: AXIS.top,
-    right: AXIS.right,
-    bottom: AXIS.xHeight,
-    left: AXIS.yWidth,
-  };
 
   return (
     <div className="space-y-6">
@@ -198,7 +181,7 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
               realisticPrice22k: { label: "22K Realistic Price (₹/gram)", color: "hsl(var(--chart-2))" },
             }}>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={filteredGoldPrices} margin={GOLD_MARGIN}>
+                <LineChart data={filteredGoldPrices}>
                   <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
                   <YAxis fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={formatCurrency} />
                   <ChartTooltip content={
@@ -236,21 +219,14 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
               <Spinner />
             ) : (
               <div className="relative h-[300px]">
-                {/* Make the chart fill this box exactly */}
-                <div className="absolute inset-0">
+                <ChartContainer config={{
+                  investment: { label: "Investment" },
+                  currentValue: { label: "Current Value" },
+                }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={hasPortfolioData ? filteredPortfolioData : (EMPTY_PORTFOLIO_POINTS as any[])}
-                      margin={PLOT_INSET}
-                    >
-                      <XAxis
-                        dataKey="displayDate"
-                        fontSize={12}
-                        tick={{ fill: "hsl(var(--muted-foreground))" }}
-                        height={AXIS.xHeight}
-                      />
+                    <LineChart data={hasPortfolioData ? filteredPortfolioData : (EMPTY_PORTFOLIO_POINTS as any[])}>
+                      <XAxis dataKey="displayDate" fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
                       <YAxis
-                        width={AXIS.yWidth}
                         fontSize={12}
                         tick={{ fill: "hsl(var(--muted-foreground))" }}
                         tickFormatter={formatCurrency}
@@ -282,19 +258,11 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
                       />
                     </LineChart>
                   </ResponsiveContainer>
-                </div>
+                </ChartContainer>
 
-                {/* Overlay centered in the plot area on ALL screens */}
+                {/* Centered, beautified empty-state message */}
                 {!hasPortfolioData && (
-                  <div
-                    className="absolute flex items-center justify-center pointer-events-none"
-                    style={{
-                      top: PLOT_INSET.top,
-                      right: PLOT_INSET.right,
-                      bottom: PLOT_INSET.bottom,
-                      left: PLOT_INSET.left,
-                    }}
-                  >
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="flex items-center gap-2 px-4 py-2 bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-lg shadow-sm">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12A9 9 0 113 12a9 9 0 0118 0z" />
