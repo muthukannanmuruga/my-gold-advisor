@@ -17,10 +17,9 @@ interface PriceDataPoint {
 
 type TimeRange = "1week" | "1month" | "3month" | "1year";
 
-// 🔄 Simple Tailwind spinner component
 const Spinner = () => (
   <div className="flex justify-center items-center h-[300px]">
-    <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent"></div>
+    <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent" />
   </div>
 );
 
@@ -90,6 +89,7 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
       .select("*")
       .order("date", { ascending: true });
     if (error || !data) {
+      setPortfolioData([]);
       setPortfolioLoading(false);
       return;
     }
@@ -150,8 +150,8 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
           </CardHeader>
           <CardContent>
             <ChartContainer config={{
-              realisticPrice24k: { label: "24K Realistic Price (₹/gram)", color: "hsl(var(--chart-1))" },
-              realisticPrice22k: { label: "22K Realistic Price (₹/gram)", color: "hsl(var(--chart-2))" },
+              realisticPrice24k: { label: "24K Realistic Price (₹/gram)" },
+              realisticPrice22k: { label: "22K Realistic Price (₹/gram)" },
             }}>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={filteredGoldPrices}>
@@ -190,6 +190,10 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
           <CardContent>
             {portfolioLoading ? (
               <Spinner />
+            ) : filteredPortfolioData.length === 0 ? (
+              <div className="flex items-center justify-center h-[300px] text-gray-500 font-medium">
+                No portfolio records found
+              </div>
             ) : (
               <ChartContainer config={{
                 investment: { label: "Investment" },
