@@ -14,6 +14,9 @@ const GOLDAPI_KEYS = [
   "goldapi-3e0c1smdzgwsdi-io",
   "goldapi-bjf1f9sme3wjm5d-io",
   "goldapi-bjf1f9sme42prdt-io",
+  "goldapi-1cey8cmsme52xgpr-io",
+  "goldapi-1amhsme530vnf-io",
+  "goldapi-1amhsme534dyb-io"
 ];
 
 serve(async (req) => {
