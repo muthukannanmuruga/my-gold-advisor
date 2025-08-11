@@ -50,14 +50,18 @@ INSERT INTO public.gold_price_history (price_inr_per_gram, created_at, source) V
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
 -- Schedule daily gold price fetch at 1.30 PM IST (8:00 AM UTC)
-SELECT cron.schedule(
-  'daily-gold-price-fetch',
-  '0 8 * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://ofhcjjajscwutppzinun.supabase.co/functions/v1/fetch-daily-gold-price',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9maGNqamFqc2N3dXRwcHppbnVuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDE5MDQyMywiZXhwIjoyMDY5NzY2NDIzfQ.NuqhusXtTg1T6N47HQJTMea1o1zrz1au9jrGCWMj2C0"}'::jsonb,
-    body := '{"scheduled": true}'::jsonb
+  SELECT
+  cron.schedule(
+    'fetch_daily_gold_price_job',  -- job name (must be unique)
+    '0 8 * * *',  -- cron time in UTC
+    $$
+      SELECT net.http_post(
+        url := 'https://ofhcjjajscwutppzinun.supabase.co/functions/v1/fetch-daily-gold-price',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9maGNqamFqc2N3dXRwcHppbnVuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDE5MDQyMywiZXhwIjoyMDY5NzY2NDIzfQ.NuqhusXtTg1T6N47HQJTMea1o1zrz1au9jrGCWMj2C0'
+        ),
+        body := jsonb_build_object('scheduled', true)
+      );
+    $$
   );
-  $$
-);
