@@ -218,7 +218,7 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
 
         timeoutRef.current = setTimeout(() => {
           setDelayedLoading(false);
-        }, 2200);
+        }, 300);
       } catch (err) {
         console.error("Error calculating stats:", err);
         setIsLoading(false);

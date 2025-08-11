@@ -15,7 +15,7 @@ import { useSession } from "@/hooks/useSession";
 const Index = () => {
   const [metricsRefresh, setMetricsRefresh] = useState(0);
   const [chartRefresh, setChartRefresh] = useState(0);
-  const [currentGoldPrice, setCurrentGoldPrice] = useState(7200);
+  const [currentGoldPrice, setCurrentGoldPrice] = useState<number | null>(null);
   const { toast } = useToast();
   const { session } = useSession();
 
