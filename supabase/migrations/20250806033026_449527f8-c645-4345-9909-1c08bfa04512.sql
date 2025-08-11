@@ -56,7 +56,7 @@ SELECT cron.schedule(
   $$
   SELECT net.http_post(
     url := 'https://ofhcjjajscwutppzinun.supabase.co/functions/v1/fetch-daily-gold-price',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9maGNqamFqc2N3dXRwcHppbnVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQxOTA0MjMsImV4cCI6MjA2OTc2NjQyM30.qghpZLVHt_QAjhtgbtcZ3GB5YSbCebtXVLM_AmgnWyM"}'::jsonb,
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9maGNqamFqc2N3dXRwcHppbnVuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDE5MDQyMywiZXhwIjoyMDY5NzY2NDIzfQ.NuqhusXtTg1T6N47HQJTMea1o1zrz1au9jrGCWMj2C0"}'::jsonb,
     body := '{"scheduled": true}'::jsonb
   );
   $$
