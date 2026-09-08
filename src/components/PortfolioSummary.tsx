@@ -75,7 +75,7 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
   const [delayedLoading, setDelayedLoading] = useState(true);
   const calculationLock = useRef(false);
   const prevStats = useRef<PortfolioStats | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const inrFormatter = useRef(
     new Intl.NumberFormat("en-IN", {
