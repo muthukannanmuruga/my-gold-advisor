@@ -57,12 +57,16 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
     return data.filter((item) => item.date >= cutoff);
   };
 
-  const fetchGoldPrices = async () => {
+  const fetchGoldPrices = async (range: TimeRange) => {
+    const cutoff = getDateRangeFilter(range);
     const { data, error } = await supabase
       .from("gold_price_history")
       .select("*")
-      .order("created_at", { ascending: true });
+      .gte("created_at", `${cutoff}T00:00:00Z`)
+      .order("created_at", { ascending: true })
+      .limit(2000);
     if (error || !data) return;
+
 
     const uniqueMap = new Map();
     data.forEach((entry) => {
@@ -112,9 +116,13 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
   };
 
   useEffect(() => {
-    fetchGoldPrices();
+    fetchGoldPrices(goldTimeRange);
+  }, [refreshTrigger, goldTimeRange]);
+
+  useEffect(() => {
     fetchPortfolioData();
   }, [refreshTrigger]);
+
 
   const filteredGoldPrices = React.useMemo(
     () => filterDataByTimeRange(goldPrices, goldTimeRange),
