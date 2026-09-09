@@ -6,6 +6,13 @@ import { PortfolioSummary } from "@/components/PortfolioSummary";
 import { GoldPriceWidget } from "@/components/GoldPriceWidget";
 import { DualGoldCharts } from "@/components/GoldPriceChart";
 import { PortfolioMetricsUpdater } from "@/components/PortfolioMetricsUpdater";
+import { AddSilverPurchaseForm } from "@/components/AddSilverPurchaseForm";
+import { SilverPurchasesList } from "@/components/SilverPurchasesList";
+import { SilverPortfolioSummary } from "@/components/SilverPortfolioSummary";
+import { SilverPriceWidget } from "@/components/SilverPriceWidget";
+import { DualSilverCharts } from "@/components/SilverCharts";
+import { SilverPortfolioMetricsUpdater } from "@/components/SilverPortfolioMetricsUpdater";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut, TrendingUp } from "lucide-react";
@@ -16,6 +23,9 @@ const Index = () => {
   const [metricsRefresh, setMetricsRefresh] = useState(0);
   const [chartRefresh, setChartRefresh] = useState(0);
   const [currentGoldPrice, setCurrentGoldPrice] = useState<number | null>(null);
+  const [silverMetricsRefresh, setSilverMetricsRefresh] = useState(0);
+  const [silverChartRefresh, setSilverChartRefresh] = useState(0);
+  const [currentSilverPrice, setCurrentSilverPrice] = useState<number>(0);
   const { toast } = useToast();
   const { session } = useSession();
 
@@ -29,6 +39,8 @@ const Index = () => {
 
   const handlePurchaseAdded = () => setMetricsRefresh(prev => prev + 1);
   const handlePurchaseDeleted = () => setMetricsRefresh(prev => prev + 1);
+  const handleSilverPurchaseChanged = () => setSilverMetricsRefresh(prev => prev + 1);
+
 
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
