@@ -61,7 +61,7 @@ const Index = () => {
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-6 w-6 text-yellow-500" />
-              <h1 className="text-2xl font-bold">Metal Portfolio Tracker</h1>
+              <h1 className="text-2xl font-bold">Bullion Portfolio Tracker</h1>
             </div>
             <Button variant="ghost" size="sm" onClick={handleSignOut}>
               <LogOut className="h-4 w-4 mr-2" />
