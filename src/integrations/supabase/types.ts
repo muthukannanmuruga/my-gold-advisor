@@ -134,12 +134,111 @@ export type Database = {
         }
         Relationships: []
       }
+      silver_portfolio_metrics: {
+        Row: {
+          created_at: string
+          current_value: number
+          date: string
+          id: string
+          investment: number
+          total_weight_grams: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number
+          date: string
+          id?: string
+          investment?: number
+          total_weight_grams?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: number
+          date?: string
+          id?: string
+          investment?: number
+          total_weight_grams?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      silver_price_history: {
+        Row: {
+          created_at: string
+          id: string
+          price_inr_per_gram: number
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          price_inr_per_gram: number
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          price_inr_per_gram?: number
+          source?: string | null
+        }
+        Relationships: []
+      }
+      silver_purchases: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          purchase_date: string
+          purchase_price_per_gram: number
+          purity: number
+          total_amount: number
+          updated_at: string
+          user_id: string
+          weight_grams: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          purchase_date: string
+          purchase_price_per_gram: number
+          purity?: number
+          total_amount: number
+          updated_at?: string
+          user_id: string
+          weight_grams: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          purchase_date?: string
+          purchase_price_per_gram?: number
+          purity?: number
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+          weight_grams?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       get_yesterday_last_price: {
+        Args: never
+        Returns: {
+          price_inr_per_gram: number
+        }[]
+      }
+      get_yesterday_last_silver_price: {
         Args: never
         Returns: {
           price_inr_per_gram: number
