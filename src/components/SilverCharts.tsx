@@ -16,7 +16,7 @@ interface PriceDataPoint {
 
 type TimeRange = "1week" | "1month" | "3month" | "1year";
 
-const MARKUP = 1.2; // 15% import duty + 5% local charges
+const MARKUP = 1.25; // 15% import duty + 10% local charges
 
 const Spinner = () => (
   <div className="flex justify-center items-center h-[300px]">

@@ -42,7 +42,7 @@ const GOLDAPI_KEYS = [
 ];
 
 const IMPORT_DUTY_RATE = 0.15;
-const LOCAL_CHARGES_RATE = 0.05;
+const LOCAL_CHARGES_RATE = 0.10;
 const KEY_INDEX_STORAGE_KEY = "silverapi_key_index";
 
 export const SilverPriceWidget = ({ onPriceUpdate }: SilverPriceWidgetProps) => {
@@ -225,7 +225,7 @@ export const SilverPriceWidget = ({ onPriceUpdate }: SilverPriceWidgetProps) => 
                 )}
               </div>
               <div className="text-sm text-muted-foreground">
-                per gram (pure silver) including 15% import duty + 5% local charges
+                per gram (pure silver) including 15% import duty + 10% local charges
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -238,7 +238,7 @@ export const SilverPriceWidget = ({ onPriceUpdate }: SilverPriceWidgetProps) => 
                   <div>₹{breakdown.importDuty.toFixed(2)}</div>
                 </div>
                 <div className="text-xs">
-                  <div className="font-medium">Local Charges (5%):</div>
+                  <div className="font-medium">Local Charges (10%):</div>
                   <div>₹{breakdown.localCharges.toFixed(2)}</div>
                 </div>
                 <div className="text-xs">
