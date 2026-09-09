@@ -6,6 +6,13 @@ import { PortfolioSummary } from "@/components/PortfolioSummary";
 import { GoldPriceWidget } from "@/components/GoldPriceWidget";
 import { DualGoldCharts } from "@/components/GoldPriceChart";
 import { PortfolioMetricsUpdater } from "@/components/PortfolioMetricsUpdater";
+import { AddSilverPurchaseForm } from "@/components/AddSilverPurchaseForm";
+import { SilverPurchasesList } from "@/components/SilverPurchasesList";
+import { SilverPortfolioSummary } from "@/components/SilverPortfolioSummary";
+import { SilverPriceWidget } from "@/components/SilverPriceWidget";
+import { DualSilverCharts } from "@/components/SilverCharts";
+import { SilverPortfolioMetricsUpdater } from "@/components/SilverPortfolioMetricsUpdater";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut, TrendingUp } from "lucide-react";
@@ -16,6 +23,9 @@ const Index = () => {
   const [metricsRefresh, setMetricsRefresh] = useState(0);
   const [chartRefresh, setChartRefresh] = useState(0);
   const [currentGoldPrice, setCurrentGoldPrice] = useState<number | null>(null);
+  const [silverMetricsRefresh, setSilverMetricsRefresh] = useState(0);
+  const [silverChartRefresh, setSilverChartRefresh] = useState(0);
+  const [currentSilverPrice, setCurrentSilverPrice] = useState<number>(0);
   const { toast } = useToast();
   const { session } = useSession();
 
@@ -29,6 +39,8 @@ const Index = () => {
 
   const handlePurchaseAdded = () => setMetricsRefresh(prev => prev + 1);
   const handlePurchaseDeleted = () => setMetricsRefresh(prev => prev + 1);
+  const handleSilverPurchaseChanged = () => setSilverMetricsRefresh(prev => prev + 1);
+
 
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
@@ -49,7 +61,7 @@ const Index = () => {
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-6 w-6 text-yellow-500" />
-              <h1 className="text-2xl font-bold">Gold Portfolio Tracker</h1>
+              <h1 className="text-2xl font-bold">Metal Portfolio Tracker</h1>
             </div>
             <Button variant="ghost" size="sm" onClick={handleSignOut}>
               <LogOut className="h-4 w-4 mr-2" />
@@ -66,17 +78,45 @@ const Index = () => {
         )}
 
         {/* Main Content */}
-        <main className="container mx-auto px-4 py-8 space-y-8">
-          <PortfolioMetricsUpdater
-            refreshTrigger={metricsRefresh}
-            onMetricsUpdated={() => setChartRefresh(prev => prev + 1)}
-          />
-          <GoldPriceWidget onPriceUpdate={setCurrentGoldPrice} />
-          <PortfolioSummary refreshTrigger={chartRefresh} currentGoldPrice={currentGoldPrice} />
-          <DualGoldCharts refreshTrigger={chartRefresh} />
-          <AddPurchaseForm onPurchaseAdded={handlePurchaseAdded} />
-          <PurchasesList refreshTrigger={chartRefresh} onPurchaseDeleted={handlePurchaseDeleted} />
+        <main className="container mx-auto px-4 py-8">
+          <Tabs defaultValue="gold" className="space-y-8">
+            <TabsList className="grid w-full max-w-xs grid-cols-2">
+              <TabsTrigger value="gold">Gold</TabsTrigger>
+              <TabsTrigger value="silver">Silver</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="gold" className="space-y-8 mt-0">
+              <PortfolioMetricsUpdater
+                refreshTrigger={metricsRefresh}
+                onMetricsUpdated={() => setChartRefresh(prev => prev + 1)}
+              />
+              <GoldPriceWidget onPriceUpdate={setCurrentGoldPrice} />
+              <PortfolioSummary refreshTrigger={chartRefresh} currentGoldPrice={currentGoldPrice} />
+              <DualGoldCharts refreshTrigger={chartRefresh} />
+              <AddPurchaseForm onPurchaseAdded={handlePurchaseAdded} />
+              <PurchasesList refreshTrigger={chartRefresh} onPurchaseDeleted={handlePurchaseDeleted} />
+            </TabsContent>
+
+            <TabsContent value="silver" className="space-y-8 mt-0">
+              <SilverPortfolioMetricsUpdater
+                refreshTrigger={silverMetricsRefresh}
+                onMetricsUpdated={() => setSilverChartRefresh(prev => prev + 1)}
+              />
+              <SilverPriceWidget onPriceUpdate={setCurrentSilverPrice} />
+              <SilverPortfolioSummary
+                refreshTrigger={silverChartRefresh}
+                currentSilverPrice={currentSilverPrice}
+              />
+              <DualSilverCharts refreshTrigger={silverChartRefresh} />
+              <AddSilverPurchaseForm onPurchaseAdded={handleSilverPurchaseChanged} />
+              <SilverPurchasesList
+                refreshTrigger={silverChartRefresh}
+                onPurchaseDeleted={handleSilverPurchaseChanged}
+              />
+            </TabsContent>
+          </Tabs>
         </main>
+
       </div>
     </AuthWrapper>
   );
