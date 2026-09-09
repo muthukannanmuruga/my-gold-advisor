@@ -7,6 +7,8 @@ const corsHeaders = {
 };
 
 const GOLDAPI_URL = "https://www.goldapi.io/api/XAU/INR";
+const SILVERAPI_URL = "https://www.goldapi.io/api/XAG/INR";
+
 const GOLDAPI_KEYS = [
   "goldapi-1424smdvlf2mb-io",
   "goldapi-3e0c1smdzgsi9r-io", 
@@ -84,40 +86,80 @@ serve(async (req) => {
       .select('id')
       .gte('created_at', `${today}T00:00:00`)
       .lt('created_at', `${today}T23:59:59`)
-      .single();
+      .maybeSingle();
 
     if (existingEntry) {
-      console.log('Price already recorded for today');
-      return new Response(
-        JSON.stringify({ message: 'Price already recorded for today' }), 
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.log('Gold price already recorded for today');
+    } else {
+      const { error: insertError } = await supabase
+        .from('gold_price_history')
+        .insert({
+          price_inr_per_gram: Number(price24K.toFixed(2)),
+          price_inr_per_gram_22k: Number(price22K.toFixed(2)),
+          source: 'scheduled-api'
+        });
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      console.log(`Stored gold prices: 24K ₹${price24K.toFixed(2)}, 22K ₹${price22K.toFixed(2)} per gram`);
     }
 
-    // Store both prices
-    const { error: insertError } = await supabase
-      .from('gold_price_history')
-      .insert({
-        price_inr_per_gram: Number(price24K.toFixed(2)),
-        price_inr_per_gram_22k: Number(price22K.toFixed(2)),
-        source: 'scheduled-api'
-      });
-
-    if (insertError) {
-      throw insertError;
+    // --- Silver ---
+    let silverPrice: number | null = null;
+    for (let i = 0; i < GOLDAPI_KEYS.length; i++) {
+      try {
+        const resp = await fetch(SILVERAPI_URL, {
+          headers: { "x-access-token": GOLDAPI_KEYS[i], Accept: "application/json" },
+        });
+        if (!resp.ok) throw new Error(`GoldAPI HTTP ${resp.status}`);
+        const json = await resp.json();
+        silverPrice = json.price_gram_24k ?? (json.price ? json.price / 31.1035 : null);
+        if (silverPrice) break;
+      } catch (error) {
+        console.warn(`Silver API key ${i} failed:`, error.message);
+      }
     }
 
-    console.log(`Stored gold prices: 24K ₹${price24K.toFixed(2)}, 22K ₹${price22K.toFixed(2)} per gram`);
+    if (silverPrice) {
+      const { data: existingSilver } = await supabase
+        .from('silver_price_history')
+        .select('id')
+        .gte('created_at', `${today}T00:00:00`)
+        .lt('created_at', `${today}T23:59:59`)
+        .maybeSingle();
+
+      if (existingSilver) {
+        console.log('Silver price already recorded for today');
+      } else {
+        const { error: silverInsertError } = await supabase
+          .from('silver_price_history')
+          .insert({
+            price_inr_per_gram: Number(silverPrice.toFixed(2)),
+            source: 'scheduled-api'
+          });
+        if (silverInsertError) {
+          console.error('Failed to store silver price:', silverInsertError.message);
+        } else {
+          console.log(`Stored silver price: ₹${silverPrice.toFixed(2)} per gram`);
+        }
+      }
+    } else {
+      console.error('Unable to get silver price from any API key');
+    }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         price24K: price24K.toFixed(2),
         price22K: price22K.toFixed(2),
-        message: 'Gold prices stored successfully' 
+        silverPrice: silverPrice ? silverPrice.toFixed(2) : null,
+        message: 'Prices stored successfully' 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
 
   } catch (error) {
     console.error('Error in fetch-daily-gold-price:', error);
