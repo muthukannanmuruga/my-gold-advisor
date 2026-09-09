@@ -7,7 +7,7 @@ interface Props {
   onMetricsUpdated?: () => void;
 }
 
-const MARKUP = 1.2; // 15% import duty + 5% local charges
+const MARKUP = 1.25; // 15% import duty + 10% local charges
 
 export const SilverPortfolioMetricsUpdater = ({ refreshTrigger, onMetricsUpdated }: Props) => {
   const { session } = useSession();
