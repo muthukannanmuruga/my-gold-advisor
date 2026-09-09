@@ -46,7 +46,7 @@ const GOLDAPI_KEYS = [
   "goldapi-1amhsme534dyb-io"
 ];
 
-const IMPORT_DUTY_RATE = 0.06;
+const IMPORT_DUTY_RATE = 0.15;
 const LOCAL_CHARGES_RATE = 0.015;
 const KEY_INDEX_STORAGE_KEY = "goldapi_key_index";
 
@@ -255,7 +255,7 @@ export const GoldPriceWidget = ({ onPriceUpdate }: GoldPriceWidgetProps) => {
               )}
             </div>
             <div className="text-sm text-muted-foreground">
-              per gram ({purity}K) including 6% import duty + 1.5% local charges
+              per gram ({purity}K) including 15% import duty + 1.5% local charges
             </div>
 
             <div className="grid grid-cols-2 gap-4">
