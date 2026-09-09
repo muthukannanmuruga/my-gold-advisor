@@ -77,8 +77,8 @@ const DualGoldCharts = memo(({ refreshTrigger }: { refreshTrigger: number }) => 
         const price22k = Number(entry.price_inr_per_gram_22k || (price24k * 22) / 24) || 0;
         uniqueMap.set(dateKey, {
           date: dateKey,
-          realisticPrice24k: Number.isFinite(price24k) ? Number((price24k * 1.075).toFixed(2)) : 0,
-          realisticPrice22k: Number.isFinite(price22k) ? Number((price22k * 1.075).toFixed(2)) : 0,
+          realisticPrice24k: Number.isFinite(price24k) ? Number((price24k * 1.165).toFixed(2)) : 0,
+          realisticPrice22k: Number.isFinite(price22k) ? Number((price22k * 1.165).toFixed(2)) : 0,
           displayDate: date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" }),
         });
       }

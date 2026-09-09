@@ -67,7 +67,7 @@ export const PortfolioMetricsUpdater = ({ refreshTrigger, onMetricsUpdated }: Pr
             if (typeof carat === "string") carat = parseInt(carat) || 24;
             const weight = Number(purchase.weight_grams);
             const purityFactor = carat / 24;
-            const pricePerGram = basePrice * 1.075 * purityFactor;
+            const pricePerGram = basePrice * 1.165 * purityFactor;
             currentValue += weight * pricePerGram;
           });
         } else {
