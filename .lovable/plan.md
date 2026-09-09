@@ -2,9 +2,15 @@
 
 ## About the dollar-to-rupee rate
 
-For gold the app never converts currencies — it calls GoldAPI's INR endpoint (`XAU/INR`), which already returns rupee prices. The same works for silver: `XAG/INR`. So silver will use `https://www.goldapi.io/api/XAG/INR` with the same rotating set of API keys, and no separate exchange-rate service is needed. Import duty (15%) and local charges (5%) are then added on top, exactly as gold adds 6% + 1.5%.
+For gold the app never converts currencies — it calls GoldAPI's INR endpoint, which already returns rupee prices. The same works for silver, so no exchange-rate service is needed.
 
-If GoldAPI ever rejects the INR silver endpoint, the fallback is to call `XAG/USD` and derive the rupee rate from the gold call (gold INR price divided by gold USD price), still with no third-party service.
+Endpoints used for silver:
+- Current price: `https://www.goldapi.io/api/XAG/INR`
+- Price on a given date: `https://www.goldapi.io/api/price/XAG/INR/YYYY-MM-DD`
+- Range backfill (optional, to seed the chart): `https://www.goldapi.io/api/history/XAG/INR?from=YYYY-MM-DD&to=YYYY-MM-DD`
+
+All calls reuse the same rotating set of GoldAPI keys already in the app. Import duty (15%) and local charges (5%) are added on top, exactly as gold adds 6% + 1.5%.
+
 
 ## What the user sees
 
