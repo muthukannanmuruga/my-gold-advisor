@@ -28,8 +28,8 @@ export const FDPortfolioSummary = ({ refreshTrigger }: Props) => {
   const totalInvestment = tracked.reduce((sum, fd) => sum + Number(fd.principal), 0);
   const currentValue = tracked.reduce((sum, fd) => sum + getFDValueOnDate(fd), 0);
   const returns = currentValue - totalInvestment;
-  const active = tracked.filter((fd) => getFDStatus(fd) === "Active").length;
-  const matured = tracked.length - active;
+  const active = tracked.filter((fd) => ["Active", "Maturing soon"].includes(getFDStatus(fd))).length;
+  const matured = tracked.filter((fd) => getFDStatus(fd) === "Matured").length;
   const cards = [
     { title: "Total Investment", value: formatINR(totalInvestment), detail: "Active and matured principal", icon: Landmark },
     { title: "Current Value", value: formatINR(currentValue), detail: "Interest capped at maturity", icon: Banknote },

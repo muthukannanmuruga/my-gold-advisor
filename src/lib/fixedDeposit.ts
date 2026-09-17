@@ -3,7 +3,7 @@ import type { Tables } from "@/integrations/supabase/types";
 export type FixedDeposit = Tables<"fixed_deposits">;
 export type InterestType = "simple" | "compound";
 export type PayoutFrequency = "monthly" | "quarterly" | "at_maturity";
-export type FDStatus = "Active" | "Matured" | "Closed";
+export type FDStatus = "Active" | "Maturing soon" | "Matured" | "Closed";
 
 const MS_PER_DAY = 86_400_000;
 const DAYS_PER_YEAR = 365.2425;
@@ -61,7 +61,8 @@ export const calculateFDValue = (
     return principal > 0 ? principal : 0;
   }
 
-  const years = calculateTenureMonths(startDate, endDate) / MONTHS_PER_YEAR;
+  const tenureMonths = calculateTenureMonths(startDate, endDate);
+  const years = (completedPeriodsOnly ? Math.floor(tenureMonths) : tenureMonths) / MONTHS_PER_YEAR;
   const rate = annualRate / 100;
   if (interestType === "simple") return principal * (1 + rate * years);
 
@@ -89,13 +90,24 @@ export const calculateMaturityAmount = (
 
 export const getFDStatus = (fd: Pick<FixedDeposit, "closed_at" | "maturity_date">, date = getISTDateString()): FDStatus => {
   if (fd.closed_at) return "Closed";
-  return date >= fd.maturity_date ? "Matured" : "Active";
+  if (date >= fd.maturity_date) return "Matured";
+  return daysBetween(date, fd.maturity_date) <= 30 ? "Maturing soon" : "Active";
 };
 
 export const getFDValueOnDate = (fd: FixedDeposit, date = getISTDateString()) => {
   if (date < fd.start_date) return 0;
   const capDate = fd.closed_at && fd.closed_at < fd.maturity_date ? fd.closed_at : fd.maturity_date;
   const valuationDate = date < capDate ? date : capDate;
+  if (valuationDate === fd.maturity_date) {
+    return calculateMaturityAmount(
+      Number(fd.principal),
+      Number(fd.interest_rate),
+      fd.start_date,
+      fd.maturity_date,
+      fd.interest_type as InterestType,
+      fd.payout_frequency as PayoutFrequency,
+    );
+  }
   return calculateFDValue(
     Number(fd.principal),
     Number(fd.interest_rate),

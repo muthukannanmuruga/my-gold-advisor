@@ -21,14 +21,14 @@ export const FDPortfolioMetricsUpdater = ({ refreshTrigger, onMetricsUpdated }: 
       const { data, error } = await supabase.from("fixed_deposits").select("*").order("start_date");
       if (error) return;
       await supabase.from("fd_portfolio_metrics").delete().eq("user_id", userId);
-      const deposits = data ?? [];
+      const deposits = (data ?? []).filter((fd) => !fd.closed_at);
       if (!deposits.length) { onMetricsUpdated(); return; }
 
       const firstDate = deposits.reduce((earliest, fd) => fd.start_date < earliest ? fd.start_date : earliest, deposits[0].start_date);
       const today = getISTDateString();
       const metrics = [];
       for (let date = firstDate; date <= today; date = addDays(date, 1)) {
-        const included = deposits.filter((fd) => fd.start_date <= date && (!fd.closed_at || date <= fd.closed_at));
+        const included = deposits.filter((fd) => fd.start_date <= date);
         metrics.push({
           user_id: userId,
           date,
