@@ -247,8 +247,8 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
 
   if (!displayStats) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
+        {Array.from({ length: 7 }).map((_, i) => (
           <Card key={i} className="h-[148px]">
             <CardContent className="p-4">
               <div className="animate-pulse space-y-2">
@@ -328,7 +328,17 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
       title: "Total Gain/Loss",
       value: formatGainValue(rawGain),
       icon: isZeroGain ? null : isGain ? TrendingUp : TrendingDown,
-      description: formatPercentage(displayStats.gainPercentage),
+      description: "",
+      isGain,
+      isLoss,
+      isZero: isZeroGain,
+      shimmer: delayedLoading,
+    },
+    {
+      title: "Total Gain/Loss %",
+      value: formatPercentage(displayStats.gainPercentage),
+      icon: Percent,
+      description: "",
       isGain,
       isLoss,
       isZero: isZeroGain,
@@ -353,10 +363,10 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
   ] as const;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
       {statCards.map((card, index) => {
         const isCagrCard = card.title === "CAGR (Annual)";
-        const isGainLossCard = card.title === "Total Gain/Loss";
+        const isGainLossCard = card.title === "Total Gain/Loss" || card.title === "Total Gain/Loss %";
         
         const iconColorClass =
           (isCagrCard || isGainLossCard) && card.value === "N/A"
