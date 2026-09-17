@@ -34,7 +34,7 @@ export const FDPortfolioSummary = ({ refreshTrigger }: Props) => {
     { title: "Total Investment", value: formatINR(totalInvestment), detail: "Active and matured principal", icon: Landmark },
     { title: "Current Value", value: formatINR(currentValue), detail: "Interest capped at maturity", icon: Banknote },
     { title: "Total Returns", value: formatINR(returns), detail: totalInvestment ? `${((returns / totalInvestment) * 100).toFixed(2)}% earned` : "0.00% earned", icon: TrendingUp },
-    { title: "Count", value: String(tracked.length), detail: <><span className="text-warning">{maturingSoon} maturing soon</span> · <span className="text-destructive">{matured} matured</span></>, icon: CalendarCheck },
+    { title: "Count", value: String(tracked.length), detail: <><span className="text-warning">{maturingSoon} Maturing Soon</span> · <span className="text-destructive">{matured} Matured</span></>, icon: CalendarCheck },
   ];
 
   return (
