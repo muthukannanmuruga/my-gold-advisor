@@ -51,7 +51,7 @@ export const FDPortfolioChart = ({ refreshTrigger }: { refreshTrigger: number })
           <ChartContainer className="h-[300px] w-full aspect-auto" config={{ investment: { label: "Investment", color: "hsl(var(--chart-1))" }, currentValue: { label: "Current Value", color: "hsl(var(--chart-2))" } }}>
             <LineChart data={data} margin={{ left: 8, right: 12 }}>
               <XAxis dataKey="displayDate" tickLine={false} axisLine={false} minTickGap={28} />
-              <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `₹${Math.round(Number(value) / 1000)}k`} width={58} />
+              <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => formatINR(Number(value))} width={104} />
               <ChartTooltip content={<ChartTooltipContent formatter={(value, name) => <><span className="text-muted-foreground">{name === "investment" ? "Investment" : "Current Value"}</span><span className="ml-auto font-mono font-medium">{formatINR(Number(value))}</span></>} />} />
               <ChartLegend content={<ChartLegendContent />} />
               <Line type="monotone" dataKey="investment" stroke="var(--color-investment)" strokeWidth={2} dot={false} />

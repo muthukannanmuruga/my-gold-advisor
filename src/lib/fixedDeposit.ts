@@ -3,7 +3,7 @@ import type { Tables } from "@/integrations/supabase/types";
 export type FixedDeposit = Tables<"fixed_deposits">;
 export type InterestType = "simple" | "compound";
 export type PayoutFrequency = "monthly" | "quarterly" | "at_maturity";
-export type FDStatus = "Active" | "Matured" | "Closed";
+export type FDStatus = "Active" | "Maturing soon" | "Matured" | "Closed";
 
 const MS_PER_DAY = 86_400_000;
 const DAYS_PER_YEAR = 365.2425;
@@ -61,7 +61,8 @@ export const calculateFDValue = (
     return principal > 0 ? principal : 0;
   }
 
-  const years = calculateTenureMonths(startDate, endDate) / MONTHS_PER_YEAR;
+  const tenureMonths = calculateTenureMonths(startDate, endDate);
+  const years = (completedPeriodsOnly ? Math.floor(tenureMonths) : tenureMonths) / MONTHS_PER_YEAR;
   const rate = annualRate / 100;
   if (interestType === "simple") return principal * (1 + rate * years);
 
