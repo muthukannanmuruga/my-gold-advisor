@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { AuthWrapper } from "@/components/AuthWrapper";
 import { AddPurchaseForm } from "@/components/AddPurchaseForm";
 import { PurchasesList } from "@/components/PurchasesList";
@@ -12,7 +12,13 @@ import { SilverPortfolioSummary } from "@/components/SilverPortfolioSummary";
 import { SilverPriceWidget } from "@/components/SilverPriceWidget";
 import { DualSilverCharts } from "@/components/SilverCharts";
 import { SilverPortfolioMetricsUpdater } from "@/components/SilverPortfolioMetricsUpdater";
+import { FixedDepositForm } from "@/components/FixedDepositForm";
+import { FixedDepositsList } from "@/components/FixedDepositsList";
+import { FDPortfolioSummary } from "@/components/FDPortfolioSummary";
+import { FDPortfolioChart } from "@/components/FDPortfolioChart";
+import { FDPortfolioMetricsUpdater } from "@/components/FDPortfolioMetricsUpdater";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut, TrendingUp } from "lucide-react";
@@ -26,6 +32,8 @@ const Index = () => {
   const [silverMetricsRefresh, setSilverMetricsRefresh] = useState(0);
   const [silverChartRefresh, setSilverChartRefresh] = useState(0);
   const [currentSilverPrice, setCurrentSilverPrice] = useState<number>(0);
+  const [fdMetricsRefresh, setFdMetricsRefresh] = useState(0);
+  const [fdChartRefresh, setFdChartRefresh] = useState(0);
   const { toast } = useToast();
   const { session } = useSession();
 
@@ -40,6 +48,8 @@ const Index = () => {
   const handlePurchaseAdded = () => setMetricsRefresh(prev => prev + 1);
   const handlePurchaseDeleted = () => setMetricsRefresh(prev => prev + 1);
   const handleSilverPurchaseChanged = () => setSilverMetricsRefresh(prev => prev + 1);
+  const handleFDChanged = () => setFdMetricsRefresh(prev => prev + 1);
+  const handleFDMetricsUpdated = useCallback(() => setFdChartRefresh(prev => prev + 1), []);
 
 
   const handleSignOut = async () => {
@@ -80,9 +90,10 @@ const Index = () => {
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8">
           <Tabs defaultValue="gold" className="space-y-8">
-            <TabsList className="grid w-full max-w-xs grid-cols-2">
+            <TabsList className="grid w-full max-w-md grid-cols-3">
               <TabsTrigger value="gold">Gold</TabsTrigger>
               <TabsTrigger value="silver">Silver</TabsTrigger>
+              <TabsTrigger value="fd">Fixed Deposit</TabsTrigger>
             </TabsList>
 
             <TabsContent value="gold" className="space-y-8 mt-0">
@@ -113,6 +124,25 @@ const Index = () => {
                 refreshTrigger={silverChartRefresh}
                 onPurchaseDeleted={handleSilverPurchaseChanged}
               />
+            </TabsContent>
+
+            <TabsContent value="fd" className="space-y-8 mt-0">
+              <FDPortfolioMetricsUpdater
+                refreshTrigger={fdMetricsRefresh}
+                onMetricsUpdated={handleFDMetricsUpdated}
+              />
+              <FDPortfolioSummary refreshTrigger={fdChartRefresh} />
+              <FDPortfolioChart refreshTrigger={fdChartRefresh} />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Add Fixed Deposit</CardTitle>
+                  <CardDescription>Record a deposit and preview its tenure and maturity amount.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <FixedDepositForm onSaved={handleFDChanged} />
+                </CardContent>
+              </Card>
+              <FixedDepositsList refreshTrigger={fdChartRefresh} onChanged={handleFDChanged} />
             </TabsContent>
           </Tabs>
         </main>
