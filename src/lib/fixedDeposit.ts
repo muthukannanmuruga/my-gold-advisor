@@ -98,6 +98,16 @@ export const getFDValueOnDate = (fd: FixedDeposit, date = getISTDateString()) =>
   if (date < fd.start_date) return 0;
   const capDate = fd.closed_at && fd.closed_at < fd.maturity_date ? fd.closed_at : fd.maturity_date;
   const valuationDate = date < capDate ? date : capDate;
+  if (valuationDate === fd.maturity_date) {
+    return calculateMaturityAmount(
+      Number(fd.principal),
+      Number(fd.interest_rate),
+      fd.start_date,
+      fd.maturity_date,
+      fd.interest_type as InterestType,
+      fd.payout_frequency as PayoutFrequency,
+    );
+  }
   return calculateFDValue(
     Number(fd.principal),
     Number(fd.interest_rate),
