@@ -14,6 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
+      fd_portfolio_metrics: {
+        Row: {
+          created_at: string
+          current_value: number
+          date: string
+          fd_count: number
+          id: string
+          investment: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number
+          date: string
+          fd_count?: number
+          id?: string
+          investment?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: number
+          date?: string
+          fd_count?: number
+          id?: string
+          investment?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fixed_deposits: {
+        Row: {
+          bank: string
+          closed_at: string | null
+          created_at: string
+          fd_id: string
+          id: string
+          interest_rate: number
+          interest_type: string
+          maturity_amount: number
+          maturity_date: string
+          payout_frequency: string
+          principal: number
+          start_date: string
+          tenure_months: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bank: string
+          closed_at?: string | null
+          created_at?: string
+          fd_id: string
+          id?: string
+          interest_rate: number
+          interest_type: string
+          maturity_amount: number
+          maturity_date: string
+          payout_frequency: string
+          principal: number
+          start_date: string
+          tenure_months: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bank?: string
+          closed_at?: string | null
+          created_at?: string
+          fd_id?: string
+          id?: string
+          interest_rate?: number
+          interest_type?: string
+          maturity_amount?: number
+          maturity_date?: string
+          payout_frequency?: string
+          principal?: number
+          start_date?: string
+          tenure_months?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       gold_price_history: {
         Row: {
           created_at: string
