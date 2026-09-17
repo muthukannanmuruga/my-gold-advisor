@@ -65,7 +65,7 @@ export const FDPortfolioSummary = ({ refreshTrigger }: Props) => {
               {Icon ? <Icon className="h-4 w-4" /> : <span className="h-4 w-4 opacity-0" />}
             </div>
           </CardHeader>
-          <CardContent><div className={`text-2xl font-bold tabular-nums whitespace-nowrap ${colorClass}`}>{value}</div><p className="mt-1 text-xs text-muted-foreground">{detail}</p></CardContent>
+          <CardContent><div className={`${title === "Total Returns" ? "text-xl" : "text-2xl"} font-bold tabular-nums whitespace-nowrap ${colorClass}`}>{value}</div><p className="mt-1 text-xs text-muted-foreground">{detail}</p></CardContent>
         </Card>
         );
       })}
