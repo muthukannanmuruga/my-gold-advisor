@@ -90,7 +90,8 @@ export const calculateMaturityAmount = (
 
 export const getFDStatus = (fd: Pick<FixedDeposit, "closed_at" | "maturity_date">, date = getISTDateString()): FDStatus => {
   if (fd.closed_at) return "Closed";
-  return date >= fd.maturity_date ? "Matured" : "Active";
+  if (date >= fd.maturity_date) return "Matured";
+  return daysBetween(date, fd.maturity_date) <= 30 ? "Maturing soon" : "Active";
 };
 
 export const getFDValueOnDate = (fd: FixedDeposit, date = getISTDateString()) => {
