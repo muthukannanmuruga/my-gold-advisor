@@ -23,7 +23,24 @@ export const daysBetween = (start: string, end: string) =>
   Math.max(0, (parseDate(end).getTime() - parseDate(start).getTime()) / MS_PER_DAY);
 
 export const calculateTenureMonths = (start: string, end: string) =>
-  (daysBetween(start, end) / DAYS_PER_YEAR) * MONTHS_PER_YEAR;
+  (() => {
+    if (!start || !end || end <= start) return 0;
+    const startDate = parseDate(start);
+    const endDate = parseDate(end);
+    const wholeMonths =
+      (endDate.getFullYear() - startDate.getFullYear()) * MONTHS_PER_YEAR +
+      endDate.getMonth() - startDate.getMonth();
+    const anchor = new Date(startDate);
+    anchor.setMonth(anchor.getMonth() + wholeMonths);
+    const adjustedMonths = anchor > endDate ? wholeMonths - 1 : wholeMonths;
+    const adjustedAnchor = new Date(startDate);
+    adjustedAnchor.setMonth(adjustedAnchor.getMonth() + adjustedMonths);
+    const nextAnchor = new Date(adjustedAnchor);
+    nextAnchor.setMonth(nextAnchor.getMonth() + 1);
+    const monthLength = Math.max(1, (nextAnchor.getTime() - adjustedAnchor.getTime()) / MS_PER_DAY);
+    const remainingDays = Math.max(0, (endDate.getTime() - adjustedAnchor.getTime()) / MS_PER_DAY);
+    return adjustedMonths + remainingDays / monthLength;
+  })();
 
 const periodsPerYear = (frequency: PayoutFrequency) => {
   if (frequency === "monthly") return 12;
@@ -44,7 +61,7 @@ export const calculateFDValue = (
     return principal > 0 ? principal : 0;
   }
 
-  const years = daysBetween(startDate, endDate) / DAYS_PER_YEAR;
+  const years = calculateTenureMonths(startDate, endDate) / MONTHS_PER_YEAR;
   const rate = annualRate / 100;
   if (interestType === "simple") return principal * (1 + rate * years);
 
