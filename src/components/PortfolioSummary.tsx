@@ -406,7 +406,8 @@ const PortfolioSummary = memo(({ refreshTrigger, currentGoldPrice }: PortfolioSu
             <CardContent className="px-4 pb-0 pt-0 flex-1 flex flex-col">
               <div
                 className={
-                  `text-2xl font-bold tabular-nums leading-none min-h-[32px] 
+                  `text-2xl font-bold tabular-nums leading-none min-h-[32px]
+                  whitespace-nowrap
                   ${card.shimmer ? "bg-muted rounded animate-pulse w-full" : ""} ${valueColorClass}`
                 }
               >

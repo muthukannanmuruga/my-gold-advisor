@@ -207,7 +207,7 @@ const SilverPortfolioSummary = memo(({ refreshTrigger, currentSilverPrice }: Pro
               </div>
             </CardHeader>
             <CardContent className="px-4 pb-0 pt-0 flex-1 flex flex-col">
-              <div className={`text-2xl font-bold tabular-nums leading-none min-h-[32px] ${colorClass}`}>
+              <div className={`text-2xl font-bold tabular-nums leading-none min-h-[32px] whitespace-nowrap ${colorClass}`}>
                 {card.value}
               </div>
               <div className="h-1" />
