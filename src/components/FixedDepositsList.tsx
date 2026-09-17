@@ -26,7 +26,8 @@ export const FixedDepositsList = ({ refreshTrigger, onChanged }: Props) => {
       setDeposits(data ?? []);
       setLoading(false);
     });
-  }, [refreshTrigger, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
 
   const confirmAction = async () => {
     if (!pending) return;
